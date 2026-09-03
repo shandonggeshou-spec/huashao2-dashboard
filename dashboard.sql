@@ -37,14 +37,18 @@ declare
   v_today date := (now() at time zone 'Asia/Shanghai')::date;
   v_period_start timestamptz;
   v_period_end timestamptz;
-  v_previous_start timestamptz;
+  v_today_start timestamptz;
+  v_yesterday_start timestamptz;
   v_period_count bigint;
-  v_previous_count bigint;
+  v_today_count bigint;
+  v_yesterday_count bigint;
   v_total_count bigint;
-  v_period_feedback bigint;
-  v_open_feedback bigint;
-  v_avg_duration numeric;
-  v_median_duration numeric;
+  v_total_feedback bigint;
+  v_pending_feedback bigint;
+  v_processed_feedback bigint;
+  v_period_avg_duration numeric;
+  v_today_avg_duration numeric;
+  v_yesterday_avg_duration numeric;
 begin
   if not public.is_dashboard_admin() then
     raise exception 'not authorized' using errcode = '42501';
@@ -52,42 +56,57 @@ begin
 
   v_period_start := ((v_today - (v_days - 1))::timestamp at time zone 'Asia/Shanghai');
   v_period_end := ((v_today + 1)::timestamp at time zone 'Asia/Shanghai');
-  v_previous_start := ((v_today - (v_days * 2 - 1))::timestamp at time zone 'Asia/Shanghai');
+  v_today_start := (v_today::timestamp at time zone 'Asia/Shanghai');
+  v_yesterday_start := ((v_today - 1)::timestamp at time zone 'Asia/Shanghai');
 
-  select count(*), avg(duration_seconds), percentile_cont(0.5) within group (order by duration_seconds)
-    into v_period_count, v_avg_duration, v_median_duration
+  select count(*), avg(duration_seconds)
+    into v_period_count, v_period_avg_duration
   from public.test_results
   where created_at >= v_period_start and created_at < v_period_end
     and public_id not like 'HL-VERIFY%' and public_id not like 'HL-LIVE%';
 
-  select count(*) into v_previous_count
+  select count(*), avg(duration_seconds)
+    into v_today_count, v_today_avg_duration
   from public.test_results
-  where created_at >= v_previous_start and created_at < v_period_start
+  where created_at >= v_today_start and created_at < v_period_end
+    and public_id not like 'HL-VERIFY%' and public_id not like 'HL-LIVE%';
+
+  select count(*), avg(duration_seconds)
+    into v_yesterday_count, v_yesterday_avg_duration
+  from public.test_results
+  where created_at >= v_yesterday_start and created_at < v_today_start
     and public_id not like 'HL-VERIFY%' and public_id not like 'HL-LIVE%';
 
   select count(*) into v_total_count
   from public.test_results
   where public_id not like 'HL-VERIFY%' and public_id not like 'HL-LIVE%';
 
-  select count(*) filter (where created_at >= v_period_start and created_at < v_period_end),
-         count(*) filter (where status in ('new', 'reviewing'))
-    into v_period_feedback, v_open_feedback
+  select count(*),
+         count(*) filter (where status = 'new'),
+         count(*) filter (where status in ('resolved', 'archived'))
+    into v_total_feedback, v_pending_feedback, v_processed_feedback
   from public.feedback
   where coalesce(result_public_id, '') not like 'HL-VERIFY%'
-    and coalesce(result_public_id, '') not like 'HL-LIVE%';
+    and coalesce(result_public_id, '') not like 'HL-LIVE%'
+    and coalesce(result_public_id, '') not like 'HL-DEMO%'
+    and lower(trim(message)) not in ('自动化回归测试', '自动化回归测试。');
 
   return jsonb_build_object(
     'days', v_days,
     'generated_at', now(),
     'metrics', jsonb_build_object(
       'period_tests', v_period_count,
-      'previous_tests', v_previous_count,
       'total_tests', v_total_count,
-      'growth_percent', case when v_previous_count = 0 then null else round(((v_period_count - v_previous_count)::numeric / v_previous_count) * 100, 1) end,
-      'avg_duration_seconds', case when v_avg_duration is null then null else round(v_avg_duration) end,
-      'median_duration_seconds', case when v_median_duration is null then null else round(v_median_duration) end,
-      'period_feedback', v_period_feedback,
-      'open_feedback', v_open_feedback
+      'period_avg_duration_seconds', case when v_period_avg_duration is null then null else round(v_period_avg_duration) end,
+      'today_tests', v_today_count,
+      'yesterday_tests', v_yesterday_count,
+      'today_tests_dod_percent', case when v_yesterday_count = 0 then null else round(((v_today_count - v_yesterday_count)::numeric / v_yesterday_count) * 100, 1) end,
+      'today_avg_duration_seconds', case when v_today_avg_duration is null then null else round(v_today_avg_duration) end,
+      'yesterday_avg_duration_seconds', case when v_yesterday_avg_duration is null then null else round(v_yesterday_avg_duration) end,
+      'today_duration_dod_percent', case when v_today_avg_duration is null or v_yesterday_avg_duration is null or v_yesterday_avg_duration = 0 then null else round(((v_today_avg_duration - v_yesterday_avg_duration) / v_yesterday_avg_duration) * 100, 1) end,
+      'total_feedback', v_total_feedback,
+      'pending_feedback', v_pending_feedback,
+      'processed_feedback', v_processed_feedback
     ),
     'daily', (
       select coalesce(jsonb_agg(jsonb_build_object('day', day::text, 'count', count) order by day), '[]'::jsonb)
@@ -133,6 +152,8 @@ begin
         from public.feedback
         where coalesce(result_public_id, '') not like 'HL-VERIFY%'
           and coalesce(result_public_id, '') not like 'HL-LIVE%'
+          and coalesce(result_public_id, '') not like 'HL-DEMO%'
+          and lower(trim(message)) not in ('自动化回归测试', '自动化回归测试。')
         order by created_at desc
         limit 30
       ) feedback_rows

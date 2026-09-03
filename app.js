@@ -56,11 +56,12 @@ function formatDuration(seconds) {
   const rest = Math.round(value % 60);
   return rest ? `${minutes}分${rest}秒` : `${minutes} 分钟`;
 }
-function growthText(value) {
-  if (value === null || value === undefined) return "上一周期暂无可比数据";
+function dodText(value) {
+  if (value === null || value === undefined) return "DoD —（昨日暂无可比数据）";
   const number = Number(value);
-  if (number === 0) return "与上一周期持平";
-  return `较上一周期${number > 0 ? "增长" : "下降"} ${Math.abs(number).toFixed(1)}%`;
+  if (!Number.isFinite(number)) return "DoD —";
+  if (number === 0) return "DoD 0.0%（与昨日持平）";
+  return `DoD ${number > 0 ? "+" : "−"}${Math.abs(number).toFixed(1)}%`;
 }
 function emptyNode(tag, className, text) {
   const element = document.createElement(tag);
@@ -126,13 +127,18 @@ function renderDashboard(data) {
   lastData = data || {};
   $("#dashboard-error").hidden = true;
   const metrics = data.metrics || {};
-  $("#metric-tests").textContent = Number(metrics.period_tests || 0).toLocaleString("zh-CN");
+  $("#metric-tests").textContent = Number(metrics.today_tests || 0).toLocaleString("zh-CN");
+  $("#metric-tests-dod").textContent = dodText(metrics.today_tests_dod_percent);
+  $("#metric-duration").textContent = formatDuration(metrics.today_avg_duration_seconds);
+  $("#metric-duration-dod").textContent = dodText(metrics.today_duration_dod_percent);
   $("#metric-total").textContent = Number(metrics.total_tests || 0).toLocaleString("zh-CN");
-  $("#metric-duration").textContent = formatDuration(metrics.avg_duration_seconds);
-  $("#metric-median").textContent = `中位数 ${formatDuration(metrics.median_duration_seconds)}`;
-  $("#metric-feedback").textContent = Number(metrics.open_feedback || 0).toLocaleString("zh-CN");
-  $("#metric-feedback-period").textContent = `本期新增 ${Number(metrics.period_feedback || 0).toLocaleString("zh-CN")} 条`;
-  $("#metric-growth").textContent = growthText(metrics.growth_percent);
+  const totalFeedback = Number(metrics.total_feedback || 0);
+  const pendingFeedback = Number(metrics.pending_feedback || 0);
+  const processedFeedback = Number(metrics.processed_feedback || 0);
+  $("#metric-feedback").textContent = totalFeedback ? pendingFeedback.toLocaleString("zh-CN") : "—";
+  $("#metric-feedback-detail").textContent = totalFeedback
+    ? `累计 ${totalFeedback.toLocaleString("zh-CN")} · 已处理 ${processedFeedback.toLocaleString("zh-CN")}`
+    : "累计 — · 已处理 —";
   $("#summary-period").textContent = `近 ${data.days || 7} 天`;
   $("#summary-title").textContent = buildSummary(data);
   $("#updated-at").textContent = `数据更新于 ${formatDate(data.generated_at, true)} · 时区：北京时间`;
@@ -151,7 +157,10 @@ function buildSummary(data) {
   const top = profiles[0];
   const topMeta = PROFILE_META[top?.type] || { name: "未知" };
   const share = Number(metrics.period_tests) ? Number(top?.count || 0) / Number(metrics.period_tests) * 100 : 0;
-  return `近 ${data.days} 天共有 ${Number(metrics.period_tests).toLocaleString("zh-CN")} 次测试，${growthText(metrics.growth_percent)}。最常见结果是${topMeta.name}人格，占 ${share.toFixed(1)}%；平均完成耗时 ${formatDuration(metrics.avg_duration_seconds)}。本期收到 ${Number(metrics.period_feedback || 0)} 条新意见，目前有 ${Number(metrics.open_feedback || 0)} 条待查看或处理中。`;
+  const feedbackText = Number(metrics.total_feedback || 0)
+    ? `累计收到 ${Number(metrics.total_feedback).toLocaleString("zh-CN")} 条意见，其中 ${Number(metrics.pending_feedback || 0).toLocaleString("zh-CN")} 条待查看。`
+    : "目前暂无真实用户意见。";
+  return `近 ${data.days} 天共有 ${Number(metrics.period_tests).toLocaleString("zh-CN")} 次测试。最常见结果是${topMeta.name}人格，占 ${share.toFixed(1)}%；本期平均完成耗时 ${formatDuration(metrics.period_avg_duration_seconds)}。${feedbackText}`;
 }
 function renderTrend(items) {
   const chart = $("#trend-chart");
