@@ -1,0 +1,130 @@
+<!doctype html>
+<html lang="zh-CN">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <meta name="robots" content="noindex,nofollow,noarchive">
+  <meta name="theme-color" content="#171716">
+  <title>花路人格局 · 站长数据看板</title>
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link href="https://fonts.googleapis.com/css2?family=Noto+Sans+SC:wght@400;500;600;700&family=Playfair+Display:ital,wght@0,700;1,700&display=swap" rel="stylesheet">
+  <link rel="stylesheet" href="styles.css">
+</head>
+<body>
+  <div class="noise" aria-hidden="true"></div>
+
+  <main id="auth-view" class="auth-shell">
+    <section class="auth-card" aria-labelledby="auth-title">
+      <div class="brand-mark" aria-hidden="true">花</div>
+      <p class="eyebrow">OWNER CONSOLE · PRIVATE</p>
+      <h1 id="auth-title">花路人格局<br><em>数据看板</em></h1>
+      <p class="auth-copy">仅限站长访问。输入管理员邮箱，我们会发送一封一次性登录邮件，无需设置密码。</p>
+      <form id="login-form" class="login-form">
+        <label for="email">管理员邮箱</label>
+        <div class="input-row">
+          <input id="email" name="email" type="email" autocomplete="email" placeholder="name@example.com" required>
+          <button type="submit">发送登录邮件</button>
+        </div>
+      </form>
+      <p id="login-status" class="status" role="status"></p>
+      <p class="privacy-note">看板只读取匿名汇总、测试时间、耗时、结果和意见；不采集 IP、城市或身份信息。</p>
+    </section>
+  </main>
+
+  <main id="unauthorized-view" class="auth-shell" hidden>
+    <section class="auth-card compact">
+      <p class="eyebrow warning">ACCESS DENIED</p>
+      <h1>这个账号<br><em>没有查看权限</em></h1>
+      <p class="auth-copy">当前邮箱已登录，但不在站长白名单中。数据没有被读取。</p>
+      <button id="unauthorized-signout" class="dark-button" type="button">退出并更换邮箱</button>
+    </section>
+  </main>
+
+  <div id="dashboard-view" hidden>
+    <header class="site-header">
+      <a class="brand" href="./" aria-label="花路人格局数据看板首页">
+        <span class="brand-mark small">花</span>
+        <span><b>花路人格局</b><small>站长数据看板</small></span>
+      </a>
+      <div class="header-actions">
+        <span id="account-email" class="account-email"></span>
+        <a id="test-site-link" class="ghost-button" target="_blank" rel="noopener">打开测试站 ↗</a>
+        <button id="signout-button" class="ghost-button" type="button">退出</button>
+      </div>
+    </header>
+
+    <div class="dashboard-shell">
+      <section class="dashboard-heading">
+        <div>
+          <p class="eyebrow">ANONYMOUS AUDIENCE OVERVIEW</p>
+          <h1>用户情况，<em>一眼看懂</em></h1>
+          <p id="updated-at" class="updated-at"></p>
+        </div>
+        <div class="toolbar">
+          <label for="days-select">统计范围</label>
+          <select id="days-select">
+            <option value="3">近 3 天</option>
+            <option value="7" selected>近 7 天</option>
+            <option value="14">近 14 天</option>
+            <option value="30">近 30 天</option>
+          </select>
+          <button id="refresh-button" class="dark-button" type="button">刷新数据</button>
+        </div>
+      </section>
+
+      <p id="dashboard-error" class="error-banner" role="alert" hidden></p>
+
+      <section class="summary-panel" aria-labelledby="summary-title">
+        <div class="summary-label">
+          <span>站长摘要</span>
+          <small id="summary-period"></small>
+        </div>
+        <p id="summary-title" class="summary-text">正在整理最近数据……</p>
+      </section>
+
+      <section class="metric-grid" aria-label="核心指标">
+        <article class="metric-card accent"><span>本期完成测试</span><strong id="metric-tests">—</strong><small id="metric-growth">等待数据</small></article>
+        <article class="metric-card"><span>累计测试</span><strong id="metric-total">—</strong><small>已排除发布验收记录</small></article>
+        <article class="metric-card"><span>平均完成耗时</span><strong id="metric-duration">—</strong><small id="metric-median">中位数 —</small></article>
+        <article class="metric-card"><span>待查看意见</span><strong id="metric-feedback">—</strong><small id="metric-feedback-period">本期新增 —</small></article>
+      </section>
+
+      <section class="chart-grid">
+        <article class="panel trend-panel">
+          <header class="panel-header"><div><p class="eyebrow">TREND</p><h2>每日测试趋势</h2></div><span id="trend-total" class="panel-note"></span></header>
+          <div id="trend-chart" class="trend-chart" role="img" aria-label="每日测试数量折线图"></div>
+        </article>
+        <article class="panel distribution-panel">
+          <header class="panel-header"><div><p class="eyebrow">PERSONA MIX</p><h2>人格结果分布</h2></div><span class="panel-note">本期</span></header>
+          <div id="profile-chart" class="profile-chart"></div>
+        </article>
+      </section>
+
+      <section class="detail-grid">
+        <article class="panel">
+          <header class="panel-header"><div><p class="eyebrow">LATEST TESTS</p><h2>最近测试</h2></div><span class="panel-note">仅显示时间、耗时、结果</span></header>
+          <div class="table-wrap">
+            <table>
+              <thead><tr><th>测试时间</th><th>结果</th><th>耗时</th><th>报告编号</th></tr></thead>
+              <tbody id="recent-results"></tbody>
+            </table>
+          </div>
+          <p id="recent-empty" class="empty-state" hidden>还没有真实测试记录。</p>
+        </article>
+
+        <article class="panel feedback-panel">
+          <header class="panel-header"><div><p class="eyebrow">FEEDBACK</p><h2>用户意见</h2></div><span class="panel-note">标记后会同步到数据库</span></header>
+          <div id="feedback-list" class="feedback-list"></div>
+          <p id="feedback-empty" class="empty-state" hidden>暂时没有用户意见。</p>
+        </article>
+      </section>
+    </div>
+  </div>
+
+  <div id="toast" class="toast" role="status"></div>
+  <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2.57.4/dist/umd/supabase.min.js"></script>
+  <script src="config.js"></script>
+  <script src="app.js"></script>
+</body>
+</html>
