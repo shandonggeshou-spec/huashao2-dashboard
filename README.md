@@ -25,7 +25,7 @@
 ## 配置
 
 1. 在原 `huashao2-personality` Supabase 项目执行 `dashboard.sql`。
-2. 将 `dashboard.sql` 最后一行的示例邮箱替换成站长邮箱并执行。
+2. 将 `dashboard.sql` 最后一行的示例邮箱替换成站长邮箱后执行；不要把真实邮箱提交到公开仓库。
 3. Supabase Dashboard → Authentication → URL Configuration：
    - Site URL 填写数据看板正式网址；
    - Redirect URLs 添加数据看板正式网址及结尾通配形式。

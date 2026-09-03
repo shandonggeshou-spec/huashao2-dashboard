@@ -164,5 +164,5 @@ $$;
 revoke all on function public.update_feedback_status(uuid, text) from public, anon;
 grant execute on function public.update_feedback_status(uuid, text) to authenticated;
 
--- 最后一行请把邮箱替换为你自己的登录邮箱，然后执行整个脚本。
+-- 最后一行请在执行前替换为站长邮箱。重复执行不会产生重复记录。
 -- insert into public.dashboard_admins(email) values ('your-email@example.com') on conflict do nothing;
