@@ -121,9 +121,12 @@ async function verifyAndLoad(session) {
   renderDashboard(data);
   if (recentResponse.error) {
     renderRecent(data.recent || []);
-    $("#recent-note").textContent = "暂时显示最新记录";
+    $("#recent-title").textContent = "最近 20 条测试";
+    $("#recent-note").textContent = "完整分页尚未启用";
     $("#recent-pagination").hidden = true;
+    showError("完整记录分页尚未启用：请在 Supabase SQL Editor 执行 pagination.sql。当前暂时显示最近 20 条。");
   } else {
+    $("#recent-title").textContent = "全部测试记录";
     renderRecent(recentResponse.data?.items || []);
     renderRecentPagination(recentResponse.data || {});
   }
@@ -294,14 +297,17 @@ async function loadRecentPage(page = 1, fallbackItems = []) {
   if (error) {
     if (fallbackItems.length) {
       renderRecent(fallbackItems);
-      $("#recent-note").textContent = "暂时显示最新记录";
+      $("#recent-title").textContent = "最近 20 条测试";
+      $("#recent-note").textContent = "完整分页尚未启用";
       $("#recent-pagination").hidden = true;
+      showError("完整记录分页尚未启用：请在 Supabase SQL Editor 执行 pagination.sql。当前暂时显示最近 20 条。");
       return;
     }
     $("#recent-note").textContent = "记录读取失败";
     showError("测试记录分页读取失败：" + error.message);
     return;
   }
+  $("#recent-title").textContent = "全部测试记录";
   renderRecent(data?.items || []);
   renderRecentPagination(data || {});
 }
