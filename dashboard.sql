@@ -187,7 +187,7 @@ begin
 
   if v_granularity = 'day' then
     with buckets as (
-      select generate_series(v_today - 29, v_today, interval '1 day')::date as bucket_start
+      select generate_series(v_today - 9, v_today, interval '1 day')::date as bucket_start
     ), counts as (
       select b.bucket_start, count(r.id) as count
       from buckets b

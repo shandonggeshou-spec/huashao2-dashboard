@@ -256,7 +256,7 @@ async function loadTrendGranularity(granularity, force = false) {
     const response = await sb.rpc("get_trend_data", { p_granularity: granularity });
     if (response.error) {
       if (granularity === "day") {
-        const fallback = await sb.rpc("get_dashboard_data", { p_days: 30 });
+        const fallback = await sb.rpc("get_dashboard_data", { p_days: 10 });
         if (!fallback.error) {
           data = {
             granularity: "day",
