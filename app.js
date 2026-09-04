@@ -25,6 +25,9 @@ let recentPageLoading = false;
 let feedbackPage = 1;
 let feedbackTotalPages = 0;
 let feedbackPageLoading = false;
+let feedbackCategory = "all";
+let feedbackCategoryRpcAvailable = null;
+let legacyFeedbackItems = null;
 let trendGranularity = "hour";
 let trendDate = shanghaiToday();
 let calendarMonth = trendDate.slice(0, 7);
@@ -130,6 +133,9 @@ async function signOut() {
   recentTotalPages = 0;
   feedbackPage = 1;
   feedbackTotalPages = 0;
+  feedbackCategory = "all";
+  feedbackCategoryRpcAvailable = null;
+  legacyFeedbackItems = null;
   trendDate = shanghaiToday();
   calendarMonth = trendDate.slice(0, 7);
   trendCache.clear();
@@ -141,10 +147,9 @@ async function verifyAndLoad(session) {
   currentSession = session;
   if (!session) return showOnly("#auth-view");
   trendCache.clear();
-  const [dashboardResponse, recentResponse, feedbackResponse] = await Promise.all([
+  const [dashboardResponse, recentResponse] = await Promise.all([
     sb.rpc("get_dashboard_data", { p_days: 7 }),
-    sb.rpc("get_test_results_page", { p_page: recentPage, p_page_size: RECENT_PAGE_SIZE }),
-    sb.rpc("get_feedback_page", { p_page: feedbackPage, p_page_size: FEEDBACK_PAGE_SIZE })
+    sb.rpc("get_test_results_page", { p_page: recentPage, p_page_size: RECENT_PAGE_SIZE })
   ]);
   const { data, error } = dashboardResponse;
   if (error) {
@@ -157,6 +162,7 @@ async function verifyAndLoad(session) {
   }
   showOnly("#dashboard-view");
   $("#account-email").textContent = session.user.email || "管理员";
+  syncFeedbackFilter(feedbackCategory);
   syncTrendDate();
   renderDashboard(data);
   await loadTrendGranularity(trendGranularity, true);
@@ -171,19 +177,13 @@ async function verifyAndLoad(session) {
     renderRecent(recentResponse.data?.items || []);
     renderRecentPagination(recentResponse.data || {});
   }
-  if (feedbackResponse.error) {
-    renderFeedback(data.feedback || []);
-    $("#feedback-note").textContent = "暂时显示最新意见";
-    $("#feedback-pagination").hidden = true;
-  } else {
-    renderFeedback(feedbackResponse.data?.items || []);
-    renderFeedbackPagination(feedbackResponse.data || {});
-  }
+  await loadFeedbackPage(feedbackPage, data.feedback || []);
 }
 async function refreshData() {
   const button = $("#refresh-button");
   button.disabled = true;
   button.textContent = "刷新中……";
+  legacyFeedbackItems = null;
   await verifyAndLoad(currentSession);
   button.disabled = false;
   button.textContent = "刷新数据";
@@ -222,6 +222,16 @@ function syncTrendSelect(granularity) {
   if (!select) return;
   select.querySelectorAll("[data-granularity]").forEach(button => {
     const selected = button.dataset.granularity === granularity;
+    button.classList.toggle("active", selected);
+    button.setAttribute("aria-selected", String(selected));
+    if (selected) select.querySelector(".range-select-trigger span").textContent = button.textContent;
+  });
+}
+function syncFeedbackFilter(category) {
+  const select = document.querySelector('[data-range-target="feedback"]');
+  if (!select) return;
+  select.querySelectorAll("[data-feedback-category]").forEach(button => {
+    const selected = button.dataset.feedbackCategory === category;
     button.classList.toggle("active", selected);
     button.setAttribute("aria-selected", String(selected));
     if (selected) select.querySelector(".range-select-trigger span").textContent = button.textContent;
@@ -421,6 +431,17 @@ async function handleRangeSelect(event) {
     trigger.setAttribute("aria-expanded", String(willOpen));
     return;
   }
+  const feedbackOption = event.target.closest("[data-feedback-category]");
+  if (feedbackOption) {
+    const category = feedbackOption.dataset.feedbackCategory;
+    closeRangeSelects();
+    if (category === feedbackCategory) return;
+    feedbackCategory = category;
+    feedbackPage = 1;
+    syncFeedbackFilter(category);
+    await loadFeedbackPage(1);
+    return;
+  }
   const option = event.target.closest("[data-granularity]");
   if (!option) return;
   const granularity = option.dataset.granularity;
@@ -562,7 +583,9 @@ function renderFeedbackPagination({ page, page_size: pageSize, total, total_page
   const normalizedPageSize = Math.max(1, Number(pageSize || FEEDBACK_PAGE_SIZE));
   feedbackPage = normalizedPage;
   feedbackTotalPages = Math.max(0, Number(totalPages || 0));
-  $("#feedback-note").textContent = normalizedTotal ? "共 " + normalizedTotal.toLocaleString("zh-CN") + " 条 · 标记后同步" : "标记后会同步到数据库";
+  $("#feedback-note").textContent = normalizedTotal
+    ? "共 " + normalizedTotal.toLocaleString("zh-CN") + " 条 · 标记后同步"
+    : feedbackCategory === "all" ? "标记后会同步到数据库" : "该类别暂无反馈";
   if (!normalizedTotal) {
     pagination.hidden = true;
     tabs.replaceChildren();
@@ -582,18 +605,58 @@ function renderFeedbackPagination({ page, page_size: pageSize, total, total_page
   });
   pagination.querySelector('[data-feedback-action="previous"]').disabled = normalizedPage <= 1;
   pagination.querySelector('[data-feedback-action="next"]').disabled = normalizedPage >= feedbackTotalPages;
-  pagination.hidden = false;
+  pagination.hidden = feedbackTotalPages <= 1;
 }
-async function loadFeedbackPage(page = 1) {
+function renderLegacyFeedbackPage(page = 1) {
+  const filtered = (legacyFeedbackItems || []).filter(item => feedbackCategory === "all" || item.category === feedbackCategory);
+  const total = filtered.length;
+  const totalPages = total ? Math.ceil(total / FEEDBACK_PAGE_SIZE) : 0;
+  const normalizedPage = totalPages ? Math.min(Math.max(1, Number(page || 1)), totalPages) : 1;
+  const start = (normalizedPage - 1) * FEEDBACK_PAGE_SIZE;
+  renderFeedback(filtered.slice(start, start + FEEDBACK_PAGE_SIZE));
+  renderFeedbackPagination({ page: normalizedPage, page_size: FEEDBACK_PAGE_SIZE, total, total_pages: totalPages });
+}
+async function loadLegacyFeedback(fallbackItems = []) {
+  if (legacyFeedbackItems) return;
+  const first = await sb.rpc("get_feedback_page", { p_page: 1, p_page_size: 30 });
+  if (first.error) {
+    legacyFeedbackItems = [...fallbackItems];
+    return;
+  }
+  const pages = [first.data?.items || []];
+  const totalPages = Math.max(1, Number(first.data?.total_pages || 1));
+  for (let page = 2; page <= totalPages; page += 1) {
+    const response = await sb.rpc("get_feedback_page", { p_page: page, p_page_size: 30 });
+    if (response.error) break;
+    pages.push(response.data?.items || []);
+  }
+  legacyFeedbackItems = pages.flat();
+}
+async function loadFeedbackPage(page = 1, fallbackItems = []) {
   if (!sb || feedbackPageLoading) return;
   feedbackPageLoading = true;
   $("#feedback-pagination").classList.add("loading");
-  const { data, error } = await sb.rpc("get_feedback_page", { p_page: Math.max(1, Number(page || 1)), p_page_size: FEEDBACK_PAGE_SIZE });
+  let response = { data: null, error: null };
+  if (feedbackCategoryRpcAvailable !== false) {
+    response = await sb.rpc("get_feedback_page_filtered", {
+      p_page: Math.max(1, Number(page || 1)),
+      p_page_size: FEEDBACK_PAGE_SIZE,
+      p_category: feedbackCategory
+    });
+    feedbackCategoryRpcAvailable = !response.error;
+  }
+  if (feedbackCategoryRpcAvailable === false) {
+    await loadLegacyFeedback(fallbackItems);
+    feedbackPageLoading = false;
+    $("#feedback-pagination").classList.remove("loading");
+    renderLegacyFeedbackPage(page);
+    return;
+  }
   feedbackPageLoading = false;
   $("#feedback-pagination").classList.remove("loading");
-  if (error) return toast("意见读取失败：" + error.message);
-  renderFeedback(data?.items || []);
-  renderFeedbackPagination(data || {});
+  if (response.error) return toast("意见读取失败：" + response.error.message);
+  renderFeedback(response.data?.items || []);
+  renderFeedbackPagination(response.data || {});
 }
 async function changeFeedbackPage(event) {
   const target = event.target.closest("button");

@@ -7,7 +7,7 @@
   <meta name="theme-color" content="#171716">
   <title>花路人格局 · 站长数据看板</title>
   <link rel="preconnect" href="https://ecqknsixdlziofwacmoi.supabase.co" crossorigin>
-  <link rel="stylesheet" href="styles.css?v=20260904-hour-axis">
+  <link rel="stylesheet" href="styles.css?v=20260905-feedback-filter5">
 </head>
 <body>
   <div class="noise" aria-hidden="true"></div>
@@ -148,7 +148,23 @@
         </article>
 
         <article class="panel feedback-panel">
-          <header class="panel-header"><div><p class="eyebrow">FEEDBACK</p><h2>用户意见</h2></div><span id="feedback-note" class="panel-note">标记后会同步到数据库</span></header>
+          <header class="panel-header">
+            <div><p class="eyebrow">FEEDBACK</p><h2>用户意见</h2></div>
+            <div class="panel-tools feedback-tools">
+              <div class="range-select feedback-filter" data-range-target="feedback">
+                <button class="range-select-trigger" type="button" aria-expanded="false" aria-haspopup="listbox"><span>全部类别</span><i aria-hidden="true"></i></button>
+                <div class="range-select-menu" role="listbox" hidden>
+                  <button type="button" role="option" data-feedback-category="all" class="active" aria-selected="true">全部类别</button>
+                  <button type="button" role="option" data-feedback-category="result">结果反馈</button>
+                  <button type="button" role="option" data-feedback-category="question">题目反馈</button>
+                  <button type="button" role="option" data-feedback-category="bug">使用问题</button>
+                  <button type="button" role="option" data-feedback-category="idea">产品建议</button>
+                  <button type="button" role="option" data-feedback-category="other">其他</button>
+                </div>
+              </div>
+              <span id="feedback-note" class="panel-note">标记后会同步到数据库</span>
+            </div>
+          </header>
           <div id="feedback-list" class="feedback-list"></div>
           <p id="feedback-empty" class="empty-state" hidden>暂时没有用户意见。</p>
           <div id="feedback-pagination" class="pagination" hidden>
@@ -167,6 +183,6 @@
   <div id="toast" class="toast" role="status"></div>
   <script src="vendor/supabase.min.js?v=2.57.4"></script>
   <script src="config.js"></script>
-  <script src="app.js?v=20260904-hour-axis"></script>
+  <script src="app.js?v=20260905-feedback-filter1"></script>
 </body>
 </html>
