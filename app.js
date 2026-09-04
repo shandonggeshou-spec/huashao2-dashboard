@@ -605,7 +605,7 @@ function renderFeedbackPagination({ page, page_size: pageSize, total, total_page
   });
   pagination.querySelector('[data-feedback-action="previous"]').disabled = normalizedPage <= 1;
   pagination.querySelector('[data-feedback-action="next"]').disabled = normalizedPage >= feedbackTotalPages;
-  pagination.hidden = feedbackTotalPages <= 1;
+  pagination.hidden = false;
 }
 function renderLegacyFeedbackPage(page = 1) {
   const filtered = (legacyFeedbackItems || []).filter(item => feedbackCategory === "all" || item.category === feedbackCategory);
