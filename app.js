@@ -37,6 +37,12 @@ function shanghaiToday() {
   const values = Object.fromEntries(parts.map(part => [part.type, part.value]));
   return `${values.year}-${values.month}-${values.day}`;
 }
+function shanghaiHour() {
+  const hour = new Intl.DateTimeFormat("en-US", {
+    timeZone: "Asia/Shanghai", hour: "2-digit", hourCycle: "h23"
+  }).formatToParts(new Date()).find(part => part.type === "hour")?.value;
+  return Math.min(23, Math.max(0, Number(hour || 0)));
+}
 function dateKey(date) {
   const year = date.getUTCFullYear();
   const month = String(date.getUTCMonth() + 1).padStart(2, "0");
@@ -298,9 +304,16 @@ function renderTrend(items, granularity = trendGranularity) {
   chart.replaceChildren();
   chart.dataset.granularity = granularity;
   chart.style.setProperty("--days", Math.max(items.length, 1));
-  const max = Math.max(1, ...items.filter(item => !item.is_future).map(item => Number(item.count || 0)));
-  items.forEach(item => {
-    const isFuture = Boolean(item.is_future);
+  const normalizedItems = items.map((item, index) => ({
+    ...item,
+    label: granularity === "hour" ? String(index) : item.label,
+    is_future: granularity === "hour" && trendDate === shanghaiToday()
+      ? index > shanghaiHour()
+      : Boolean(item.is_future)
+  }));
+  const max = Math.max(1, ...normalizedItems.filter(item => !item.is_future).map(item => Number(item.count || 0)));
+  normalizedItems.forEach(item => {
+    const isFuture = item.is_future;
     const count = isFuture ? null : Number(item.count || 0);
     const column = emptyNode("div", `trend-column${isFuture ? " future" : ""}`, "");
     const wrap = emptyNode("div", "trend-bar-wrap", "");
