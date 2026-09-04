@@ -6,7 +6,7 @@
 
 - 今日测试量及 DoD、今日平均耗时及 DoD；
 - 累计测试数、待查看/累计/已处理意见数；
-- 测试趋势支持最近 10 个自然日、每 7 日、自然月三种聚合粒度；人格结果分布固定使用近 7 日口径；
+- 测试趋势支持所选日期的 24 个小时段、截至所选日期的最近 10 个自然日、每 7 日和自然月聚合；人格结果分布固定使用近 7 日口径；
 - 可分页查看全部测试的时间、耗时、结果和匿名报告编号；
 - 可分页查看用户意见及处理状态；
 - 自动生成的近几天运营摘要。
@@ -24,7 +24,7 @@
 
 ## 配置
 
-1. 首次安装时，在原 `huashao2-personality` Supabase 项目执行 `dashboard.sql`；已有看板依次执行 `pagination.sql`、`feedback-pagination.sql` 和 `trend-granularity.sql`，启用测试分页、意见分页和趋势聚合。
+1. 首次安装时，在原 `huashao2-personality` Supabase 项目执行 `dashboard.sql`；无论首次还是已有看板，最后都执行最新版 `trend-granularity.sql`，启用 Hour 和历史日期趋势。已有看板如果还未启用分页，再补充执行 `pagination.sql` 和 `feedback-pagination.sql`。
 2. 将 `dashboard.sql` 最后一行的示例邮箱替换成站长邮箱后执行；不要把真实邮箱提交到公开仓库。
 3. Supabase Dashboard → Authentication → URL Configuration：
    - Site URL 填写数据看板正式网址；

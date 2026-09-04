@@ -7,7 +7,7 @@
   <meta name="theme-color" content="#171716">
   <title>花路人格局 · 站长数据看板</title>
   <link rel="preconnect" href="https://ecqknsixdlziofwacmoi.supabase.co" crossorigin>
-  <link rel="stylesheet" href="styles.css?v=20260904-granularity2">
+  <link rel="stylesheet" href="styles.css?v=20260904-hour-date">
 </head>
 <body>
   <div class="noise" aria-hidden="true"></div>
@@ -86,12 +86,31 @@
           <header class="panel-header">
             <div><p class="eyebrow">TREND</p><h2>测试趋势</h2></div>
             <div class="panel-tools">
-              <div class="range-select" data-range-target="trend">
-                <button class="range-select-trigger" type="button" aria-expanded="false"><span>By Day</span><i aria-hidden="true"></i></button>
-                <div class="range-select-menu" role="listbox" hidden>
-                  <button type="button" role="option" data-granularity="day" class="active" aria-selected="true">By Day</button>
-                  <button type="button" role="option" data-granularity="l7d">L7D</button>
-                  <button type="button" role="option" data-granularity="month">Month</button>
+              <div class="trend-controls">
+                <div id="trend-date-picker" class="date-picker">
+                  <button id="trend-date-trigger" class="date-picker-trigger" type="button" aria-haspopup="dialog" aria-expanded="false">
+                    <span id="trend-date-label"></span><i aria-hidden="true"></i>
+                  </button>
+                  <div id="trend-calendar" class="calendar-popover" role="dialog" aria-label="选择趋势基准日期" hidden>
+                    <div class="calendar-head">
+                      <button type="button" data-calendar-shift="-12" aria-label="上一年">«</button>
+                      <button type="button" data-calendar-shift="-1" aria-label="上个月">‹</button>
+                      <strong id="calendar-month-label"></strong>
+                      <button type="button" data-calendar-shift="1" aria-label="下个月">›</button>
+                      <button type="button" data-calendar-shift="12" aria-label="下一年">»</button>
+                    </div>
+                    <div class="calendar-weekdays" aria-hidden="true"><span>日</span><span>一</span><span>二</span><span>三</span><span>四</span><span>五</span><span>六</span></div>
+                    <div id="calendar-days" class="calendar-days"></div>
+                  </div>
+                </div>
+                <div class="range-select" data-range-target="trend">
+                  <button class="range-select-trigger" type="button" aria-expanded="false"><span>By Day</span><i aria-hidden="true"></i></button>
+                  <div class="range-select-menu" role="listbox" hidden>
+                    <button type="button" role="option" data-granularity="hour">Hour</button>
+                    <button type="button" role="option" data-granularity="day" class="active" aria-selected="true">By Day</button>
+                    <button type="button" role="option" data-granularity="l7d">L7D</button>
+                    <button type="button" role="option" data-granularity="month">Month</button>
+                  </div>
                 </div>
               </div>
               <span id="trend-total" class="panel-note range-note"></span>
@@ -148,6 +167,6 @@
   <div id="toast" class="toast" role="status"></div>
   <script src="vendor/supabase.min.js?v=2.57.4"></script>
   <script src="config.js"></script>
-  <script src="app.js?v=20260904-day10"></script>
+  <script src="app.js?v=20260904-hour-date"></script>
 </body>
 </html>

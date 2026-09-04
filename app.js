@@ -26,7 +26,28 @@ let feedbackPage = 1;
 let feedbackTotalPages = 0;
 let feedbackPageLoading = false;
 let trendGranularity = "day";
+let trendDate = shanghaiToday();
+let calendarMonth = trendDate.slice(0, 7);
 const trendCache = new Map();
+
+function shanghaiToday() {
+  const parts = new Intl.DateTimeFormat("en-CA", {
+    timeZone: "Asia/Shanghai", year: "numeric", month: "2-digit", day: "2-digit"
+  }).formatToParts(new Date());
+  const values = Object.fromEntries(parts.map(part => [part.type, part.value]));
+  return `${values.year}-${values.month}-${values.day}`;
+}
+function dateKey(date) {
+  const year = date.getUTCFullYear();
+  const month = String(date.getUTCMonth() + 1).padStart(2, "0");
+  const day = String(date.getUTCDate()).padStart(2, "0");
+  return `${year}-${month}-${day}`;
+}
+function shiftMonth(value, amount) {
+  const [year, month] = value.split("-").map(Number);
+  const shifted = new Date(Date.UTC(year, month - 1 + amount, 1));
+  return `${shifted.getUTCFullYear()}-${String(shifted.getUTCMonth() + 1).padStart(2, "0")}`;
+}
 
 function showOnly(id) {
   ["#auth-view", "#unauthorized-view", "#dashboard-view"].forEach(selector => {
@@ -103,6 +124,8 @@ async function signOut() {
   recentTotalPages = 0;
   feedbackPage = 1;
   feedbackTotalPages = 0;
+  trendDate = shanghaiToday();
+  calendarMonth = trendDate.slice(0, 7);
   trendCache.clear();
   history.replaceState({}, document.title, location.pathname);
   showOnly("#auth-view");
@@ -128,6 +151,7 @@ async function verifyAndLoad(session) {
   }
   showOnly("#dashboard-view");
   $("#account-email").textContent = session.user.email || "管理员";
+  syncTrendDate();
   renderDashboard(data);
   await loadTrendGranularity(trendGranularity, true);
   if (recentResponse.error) {
@@ -197,6 +221,64 @@ function syncTrendSelect(granularity) {
     if (selected) select.querySelector(".range-select-trigger span").textContent = button.textContent;
   });
 }
+function syncTrendDate() {
+  const label = $("#trend-date-label");
+  if (label) label.textContent = trendDate;
+}
+function renderCalendar() {
+  const [year, month] = calendarMonth.split("-").map(Number);
+  const first = new Date(Date.UTC(year, month - 1, 1));
+  const gridStart = new Date(first);
+  gridStart.setUTCDate(1 - first.getUTCDay());
+  $("#calendar-month-label").textContent = `${year} - ${String(month).padStart(2, "0")}`;
+  const days = $("#calendar-days");
+  days.replaceChildren();
+  for (let index = 0; index < 42; index += 1) {
+    const date = new Date(gridStart);
+    date.setUTCDate(gridStart.getUTCDate() + index);
+    const value = dateKey(date);
+    const button = emptyNode("button", "calendar-day", date.getUTCDate());
+    button.type = "button";
+    button.dataset.date = value;
+    button.classList.toggle("outside", date.getUTCMonth() !== month - 1);
+    button.classList.toggle("selected", value === trendDate);
+    button.classList.toggle("today", value === shanghaiToday());
+    button.disabled = value > shanghaiToday();
+    button.setAttribute("aria-label", value);
+    days.append(button);
+  }
+  document.querySelectorAll("[data-calendar-shift]").forEach(button => {
+    const amount = Number(button.dataset.calendarShift);
+    button.disabled = amount > 0 && shiftMonth(calendarMonth, amount) > shanghaiToday().slice(0, 7);
+  });
+}
+function closeCalendar() {
+  $("#trend-calendar").hidden = true;
+  $("#trend-date-trigger").setAttribute("aria-expanded", "false");
+}
+function toggleCalendar() {
+  const calendar = $("#trend-calendar");
+  const willOpen = calendar.hidden;
+  closeRangeSelects();
+  calendar.hidden = !willOpen;
+  $("#trend-date-trigger").setAttribute("aria-expanded", String(willOpen));
+  if (willOpen) { calendarMonth = trendDate.slice(0, 7); renderCalendar(); }
+}
+async function handleCalendar(event) {
+  const shift = event.target.closest("[data-calendar-shift]");
+  if (shift && !shift.disabled) {
+    calendarMonth = shiftMonth(calendarMonth, Number(shift.dataset.calendarShift));
+    renderCalendar();
+    return;
+  }
+  const day = event.target.closest("[data-date]");
+  if (!day || day.disabled) return;
+  trendDate = day.dataset.date;
+  calendarMonth = trendDate.slice(0, 7);
+  syncTrendDate();
+  closeCalendar();
+  await loadTrendGranularity(trendGranularity, true);
+}
 function buildSummary(data) {
   const metrics = data.metrics || {};
   const profiles = [...(data.profiles || [])].sort((a, b) => Number(b.count) - Number(a.count));
@@ -251,11 +333,15 @@ async function loadTrendGranularity(granularity, force = false) {
   const container = document.querySelector('[data-range-target="trend"]');
   if (!container || (!force && trendGranularity === granularity)) return true;
   container.classList.add("loading");
-  let data = trendCache.get(granularity);
+  const cacheKey = `${granularity}:${trendDate}`;
+  let data = trendCache.get(cacheKey);
   if (!data) {
-    const response = await sb.rpc("get_trend_data", { p_granularity: granularity });
+    let response = await sb.rpc("get_trend_data", { p_granularity: granularity, p_date: trendDate });
+    if (response.error && trendDate === shanghaiToday() && granularity !== "hour") {
+      response = await sb.rpc("get_trend_data", { p_granularity: granularity });
+    }
     if (response.error) {
-      if (granularity === "day") {
+      if (granularity === "day" && trendDate === shanghaiToday()) {
         const fallback = await sb.rpc("get_dashboard_data", { p_days: 10 });
         if (!fallback.error) {
           data = {
@@ -268,14 +354,14 @@ async function loadTrendGranularity(granularity, force = false) {
       if (!data) {
         container.classList.remove("loading");
         toast(/get_trend_data|schema cache/i.test(response.error.message || "")
-          ? "周/月趋势尚未启用，请先执行趋势聚合 SQL。"
+          ? "小时或历史趋势尚未启用，请先执行新版趋势 SQL。"
           : "趋势读取失败：" + response.error.message);
         return false;
       }
     } else {
       data = response.data;
     }
-    trendCache.set(granularity, data);
+    trendCache.set(cacheKey, data);
   }
   trendGranularity = granularity;
   syncTrendSelect(granularity);
@@ -296,6 +382,7 @@ async function handleRangeSelect(event) {
   if (!select) return;
   const trigger = event.target.closest(".range-select-trigger");
   if (trigger) {
+    closeCalendar();
     const menu = select.querySelector(".range-select-menu");
     const willOpen = menu.hidden;
     closeRangeSelects(select);
@@ -513,7 +600,13 @@ $("#signout-button").addEventListener("click", signOut);
 $("#unauthorized-signout").addEventListener("click", signOut);
 $("#refresh-button").addEventListener("click", refreshData);
 document.querySelectorAll(".range-select").forEach(select => select.addEventListener("click", handleRangeSelect));
-document.addEventListener("click", event => { if (!event.target.closest(".range-select")) closeRangeSelects(); });
+$("#trend-date-trigger").addEventListener("click", toggleCalendar);
+$("#trend-calendar").addEventListener("click", handleCalendar);
+document.addEventListener("click", event => {
+  if (!event.target.closest(".range-select")) closeRangeSelects();
+  if (!event.target.closest(".date-picker")) closeCalendar();
+});
+document.addEventListener("keydown", event => { if (event.key === "Escape") { closeRangeSelects(); closeCalendar(); } });
 $("#recent-pagination").addEventListener("click", changeRecentPage);
 $("#feedback-pagination").addEventListener("click", changeFeedbackPage);
 $("#feedback-list").addEventListener("click", updateFeedbackStatus);
