@@ -106,7 +106,7 @@ button:disabled { opacity: .55; cursor: wait; }
 .trend-chart { min-height: 270px; display: grid; grid-template-columns: repeat(var(--days, 7), minmax(18px, 1fr)); align-items: end; gap: clamp(3px, .5vw, 7px); padding-top: 26px; border-bottom: 1px solid var(--line); overflow-x: auto; overscroll-behavior-inline: contain; -webkit-overflow-scrolling: touch; }
 .trend-chart[data-granularity="hour"] { grid-template-columns: repeat(24, minmax(0, 1fr)); gap: clamp(2px, .28vw, 5px); overflow-x: hidden; }
 .trend-chart[data-granularity="hour"] .trend-bar { width: min(22px, 78%); }
-.trend-column.future { visibility: hidden; }
+.trend-column.future .trend-bar-wrap { visibility: hidden; }
 .trend-chart[data-granularity="l7d"], .trend-chart[data-granularity="month"] { grid-template-columns: repeat(var(--days, 7), minmax(48px, 1fr)); }
 .trend-column { height: 220px; display: grid; grid-template-rows: 1fr auto; align-items: end; gap: 9px; text-align: center; }
 .trend-bar-wrap { height: 100%; display: flex; flex-direction: column; justify-content: end; align-items: center; }

@@ -7,7 +7,7 @@
   <meta name="theme-color" content="#171716">
   <title>花路人格局 · 站长数据看板</title>
   <link rel="preconnect" href="https://ecqknsixdlziofwacmoi.supabase.co" crossorigin>
-  <link rel="stylesheet" href="styles.css?v=20260904-hour-compact">
+  <link rel="stylesheet" href="styles.css?v=20260904-hour-axis">
 </head>
 <body>
   <div class="noise" aria-hidden="true"></div>
@@ -104,10 +104,10 @@
                   </div>
                 </div>
                 <div class="range-select" data-range-target="trend">
-                  <button class="range-select-trigger" type="button" aria-expanded="false"><span>By Day</span><i aria-hidden="true"></i></button>
+                  <button class="range-select-trigger" type="button" aria-expanded="false"><span>Hour</span><i aria-hidden="true"></i></button>
                   <div class="range-select-menu" role="listbox" hidden>
-                    <button type="button" role="option" data-granularity="hour">Hour</button>
-                    <button type="button" role="option" data-granularity="day" class="active" aria-selected="true">By Day</button>
+                    <button type="button" role="option" data-granularity="hour" class="active" aria-selected="true">Hour</button>
+                    <button type="button" role="option" data-granularity="day">By Day</button>
                     <button type="button" role="option" data-granularity="l7d">L7D</button>
                     <button type="button" role="option" data-granularity="month">Month</button>
                   </div>
@@ -167,6 +167,6 @@
   <div id="toast" class="toast" role="status"></div>
   <script src="vendor/supabase.min.js?v=2.57.4"></script>
   <script src="config.js"></script>
-  <script src="app.js?v=20260904-hour-compact2"></script>
+  <script src="app.js?v=20260904-hour-axis"></script>
 </body>
 </html>

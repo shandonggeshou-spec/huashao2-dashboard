@@ -25,7 +25,7 @@ let recentPageLoading = false;
 let feedbackPage = 1;
 let feedbackTotalPages = 0;
 let feedbackPageLoading = false;
-let trendGranularity = "day";
+let trendGranularity = "hour";
 let trendDate = shanghaiToday();
 let calendarMonth = trendDate.slice(0, 7);
 const trendCache = new Map();
@@ -214,7 +214,7 @@ function renderDashboard(data) {
   $("#updated-at").textContent = `数据更新于 ${formatDate(data.generated_at, true)} · 时区：北京时间`;
   $("#trend-total").textContent = `共 ${Number(metrics.period_tests || 0)} 次`;
   $("#profile-total").textContent = `共 ${Number(metrics.period_tests || 0)} 次`;
-  renderTrend(data.daily || [], "day");
+  renderTrend([], trendGranularity);
   renderProfiles(data.profiles || [], Number(metrics.period_tests || 0));
 }
 function syncTrendSelect(granularity) {
@@ -304,26 +304,40 @@ function renderTrend(items, granularity = trendGranularity) {
   chart.replaceChildren();
   chart.dataset.granularity = granularity;
   chart.style.setProperty("--days", Math.max(items.length, 1));
-  const normalizedItems = items.map((item, index) => ({
-    ...item,
-    label: granularity === "hour" ? String(index) : item.label,
-    is_future: granularity === "hour" && trendDate === shanghaiToday()
-      ? index > shanghaiHour()
-      : Boolean(item.is_future)
-  }));
+  const normalizedItems = granularity === "hour"
+    ? (() => {
+        const itemsByHour = new Map(items.map((item, index) => [
+          Number.isInteger(Number(item.label)) ? Number(item.label) : index,
+          item
+        ]));
+        return Array.from({ length: 24 }, (_, hour) => {
+          const item = itemsByHour.get(hour) || {};
+          return {
+            ...item,
+            label: String(hour),
+            count: Number(item.count || 0),
+            is_future: trendDate === shanghaiToday()
+              ? hour > shanghaiHour()
+              : Boolean(item.is_future)
+          };
+        });
+      })()
+    : items.map(item => ({ ...item, is_future: Boolean(item.is_future) }));
+  chart.style.setProperty("--days", Math.max(normalizedItems.length, 1));
   const max = Math.max(1, ...normalizedItems.filter(item => !item.is_future).map(item => Number(item.count || 0)));
   normalizedItems.forEach(item => {
     const isFuture = item.is_future;
-    const count = isFuture ? null : Number(item.count || 0);
-    const column = emptyNode("div", `trend-column${isFuture ? " future" : ""}`, "");
+    const count = Number(item.count || 0);
+    const hasData = !isFuture && count > 0;
+    const column = emptyNode("div", `trend-column${isFuture ? " future" : ""}${hasData ? "" : " empty"}`, "");
     const wrap = emptyNode("div", "trend-bar-wrap", "");
-    if (!isFuture) {
+    if (hasData) {
       wrap.append(emptyNode("span", "trend-value", count.toLocaleString("zh-CN")));
       const bar = emptyNode("i", "trend-bar", "");
-      bar.style.height = `${Math.max(2, count / max * 100)}%`;
+      bar.style.height = `${count / max * 100}%`;
       wrap.append(bar);
     }
-    const label = isFuture ? "" : (item.label ?? (item.day ? formatDay(item.day) : safeText(item.bucket_start)));
+    const label = item.label ?? (item.day ? formatDay(item.day) : safeText(item.bucket_start));
     column.append(wrap, emptyNode("span", "trend-label", label));
     chart.append(column);
   });
