@@ -103,7 +103,11 @@ async function verifyAndLoad(session) {
   currentSession = session;
   if (!session) return showOnly("#auth-view");
   const days = Number($("#days-select").value || 7);
-  const { data, error } = await sb.rpc("get_dashboard_data", { p_days: days });
+  const [dashboardResponse, recentResponse] = await Promise.all([
+    sb.rpc("get_dashboard_data", { p_days: days }),
+    sb.rpc("get_test_results_page", { p_page: recentPage, p_page_size: RECENT_PAGE_SIZE })
+  ]);
+  const { data, error } = dashboardResponse;
   if (error) {
     if (["42501", "P0001"].includes(error.code) || /not authorized|permission/i.test(error.message)) {
       return showOnly("#unauthorized-view");
@@ -115,7 +119,14 @@ async function verifyAndLoad(session) {
   showOnly("#dashboard-view");
   $("#account-email").textContent = session.user.email || "管理员";
   renderDashboard(data);
-  await loadRecentPage(recentPage, data.recent || []);
+  if (recentResponse.error) {
+    renderRecent(data.recent || []);
+    $("#recent-note").textContent = "暂时显示最新记录";
+    $("#recent-pagination").hidden = true;
+  } else {
+    renderRecent(recentResponse.data?.items || []);
+    renderRecentPagination(recentResponse.data || {});
+  }
 }
 async function refreshData() {
   const button = $("#refresh-button");
