@@ -14,9 +14,13 @@ const PROFILE_META = {
 };
 const CATEGORY_NAMES = { result: "结果反馈", question: "题目反馈", bug: "使用问题", idea: "产品建议", other: "其他" };
 const STATUS_NAMES = { new: "待查看", reviewing: "处理中", resolved: "已解决", archived: "已归档" };
+const RECENT_PAGE_SIZE = 10;
 const $ = selector => document.querySelector(selector);
 let currentSession = null;
 let lastData = null;
+let recentPage = 1;
+let recentTotalPages = 0;
+let recentPageLoading = false;
 
 function showOnly(id) {
   ["#auth-view", "#unauthorized-view", "#dashboard-view"].forEach(selector => {
@@ -89,6 +93,8 @@ async function signOut() {
   await sb?.auth.signOut();
   currentSession = null;
   lastData = null;
+  recentPage = 1;
+  recentTotalPages = 0;
   history.replaceState({}, document.title, location.pathname);
   showOnly("#auth-view");
   setStatus("已安全退出。");
@@ -109,6 +115,7 @@ async function verifyAndLoad(session) {
   showOnly("#dashboard-view");
   $("#account-email").textContent = session.user.email || "管理员";
   renderDashboard(data);
+  await loadRecentPage(recentPage, data.recent || []);
 }
 async function refreshData() {
   const button = $("#refresh-button");
@@ -145,7 +152,6 @@ function renderDashboard(data) {
   $("#trend-total").textContent = `共 ${Number(metrics.period_tests || 0)} 次`;
   renderTrend(data.daily || []);
   renderProfiles(data.profiles || [], Number(metrics.period_tests || 0));
-  renderRecent(data.recent || []);
   renderFeedback(data.feedback || []);
 }
 function buildSummary(data) {
@@ -215,6 +221,88 @@ function renderRecent(items) {
     body.append(row);
   });
 }
+function getPageTabs(page, totalPages) {
+  if (totalPages <= 7) return Array.from({ length: totalPages }, (_, index) => index + 1);
+  const pages = new Set([1, totalPages, page - 1, page, page + 1]);
+  const values = [...pages].filter(value => value >= 1 && value <= totalPages).sort((a, b) => a - b);
+  const tabs = [];
+  values.forEach((value, index) => {
+    if (index && value - values[index - 1] > 1) tabs.push("ellipsis");
+    tabs.push(value);
+  });
+  return tabs;
+}
+function renderRecentPagination({ page, page_size: pageSize, total, total_pages: totalPages }) {
+  const pagination = $("#recent-pagination");
+  const tabs = $("#recent-page-tabs");
+  const normalizedTotal = Number(total || 0);
+  const normalizedPage = Math.max(1, Number(page || 1));
+  const normalizedPageSize = Math.max(1, Number(pageSize || RECENT_PAGE_SIZE));
+  const normalizedTotalPages = Math.max(0, Number(totalPages || 0));
+  recentPage = normalizedPage;
+  recentTotalPages = normalizedTotalPages;
+  $("#recent-note").textContent = normalizedTotal ? "" : "仅显示时间、耗时、结果";
+  if (!normalizedTotal) {
+    pagination.hidden = true;
+    tabs.replaceChildren();
+    return;
+  }
+  const start = (normalizedPage - 1) * normalizedPageSize + 1;
+  const end = Math.min(normalizedPage * normalizedPageSize, normalizedTotal);
+  $("#recent-note").textContent = "共 " + normalizedTotal.toLocaleString("zh-CN") + " 条真实记录";
+  $("#recent-page-summary").textContent = "第 " + start + "–" + end + " 条，共 " + normalizedTotal.toLocaleString("zh-CN") + " 条";
+  tabs.replaceChildren();
+  getPageTabs(normalizedPage, normalizedTotalPages).forEach(value => {
+    if (value === "ellipsis") {
+      tabs.append(emptyNode("span", "page-ellipsis", "…"));
+      return;
+    }
+    const button = emptyNode("button", "page-tab" + (value === normalizedPage ? " active" : ""), value);
+    button.type = "button";
+    button.dataset.page = value;
+    button.setAttribute("aria-label", "第 " + value + " 页");
+    if (value === normalizedPage) button.setAttribute("aria-current", "page");
+    tabs.append(button);
+  });
+  const previous = pagination.querySelector('[data-page-action="previous"]');
+  const next = pagination.querySelector('[data-page-action="next"]');
+  previous.disabled = normalizedPage <= 1;
+  next.disabled = normalizedPage >= normalizedTotalPages;
+  pagination.hidden = false;
+}
+async function loadRecentPage(page = 1, fallbackItems = []) {
+  if (!sb || recentPageLoading) return;
+  recentPageLoading = true;
+  $("#recent-pagination").classList.add("loading");
+  const { data, error } = await sb.rpc("get_test_results_page", {
+    p_page: Math.max(1, Number(page || 1)),
+    p_page_size: RECENT_PAGE_SIZE
+  });
+  recentPageLoading = false;
+  $("#recent-pagination").classList.remove("loading");
+  if (error) {
+    if (fallbackItems.length) {
+      renderRecent(fallbackItems);
+      $("#recent-note").textContent = "暂时显示最新记录";
+      $("#recent-pagination").hidden = true;
+      return;
+    }
+    $("#recent-note").textContent = "记录读取失败";
+    showError("测试记录分页读取失败：" + error.message);
+    return;
+  }
+  renderRecent(data?.items || []);
+  renderRecentPagination(data || {});
+}
+async function changeRecentPage(event) {
+  const target = event.target.closest("button");
+  if (!target || target.disabled || recentPageLoading) return;
+  let nextPage = Number(target.dataset.page || recentPage);
+  if (target.dataset.pageAction === "previous") nextPage = recentPage - 1;
+  if (target.dataset.pageAction === "next") nextPage = recentPage + 1;
+  if (nextPage < 1 || nextPage > recentTotalPages || nextPage === recentPage) return;
+  await loadRecentPage(nextPage);
+}
 function renderFeedback(items) {
   const list = $("#feedback-list");
   list.replaceChildren();
@@ -263,5 +351,6 @@ $("#signout-button").addEventListener("click", signOut);
 $("#unauthorized-signout").addEventListener("click", signOut);
 $("#refresh-button").addEventListener("click", refreshData);
 $("#days-select").addEventListener("change", refreshData);
+$("#recent-pagination").addEventListener("click", changeRecentPage);
 $("#feedback-list").addEventListener("click", updateFeedbackStatus);
 initialize();

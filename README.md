@@ -7,7 +7,7 @@
 - 今日测试量及 DoD、今日平均耗时及 DoD；
 - 累计测试数、待查看/累计/已处理意见数；
 - 每日趋势、七种人格结果分布；
-- 最近测试的时间、耗时、结果和匿名报告编号；
+- 可分页查看全部测试的时间、耗时、结果和匿名报告编号；
 - 用户意见及处理状态；
 - 自动生成的近几天运营摘要。
 
@@ -24,7 +24,7 @@
 
 ## 配置
 
-1. 在原 `huashao2-personality` Supabase 项目执行 `dashboard.sql`。
+1. 首次安装时，在原 `huashao2-personality` Supabase 项目执行 `dashboard.sql`；已有看板只需执行 `pagination.sql` 启用全量分页。
 2. 将 `dashboard.sql` 最后一行的示例邮箱替换成站长邮箱后执行；不要把真实邮箱提交到公开仓库。
 3. Supabase Dashboard → Authentication → URL Configuration：
    - Site URL 填写数据看板正式网址；

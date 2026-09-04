@@ -9,7 +9,7 @@
   <link rel="preconnect" href="https://fonts.googleapis.com">
   <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
   <link href="https://fonts.googleapis.com/css2?family=Noto+Sans+SC:wght@400;500;600;700&family=Playfair+Display:ital,wght@0,700;1,700&display=swap" rel="stylesheet">
-  <link rel="stylesheet" href="styles.css">
+  <link rel="stylesheet" href="styles.css?v=20260904-pagination">
 </head>
 <body>
   <div class="noise" aria-hidden="true"></div>
@@ -103,7 +103,7 @@
 
       <section class="detail-grid">
         <article class="panel">
-          <header class="panel-header"><div><p class="eyebrow">LATEST TESTS</p><h2>最近测试</h2></div><span class="panel-note">仅显示时间、耗时、结果</span></header>
+          <header class="panel-header"><div><p class="eyebrow">LATEST TESTS</p><h2>全部测试记录</h2></div><span id="recent-note" class="panel-note">仅显示时间、耗时、结果</span></header>
           <div class="table-wrap">
             <table>
               <thead><tr><th>测试时间</th><th>结果</th><th>耗时</th><th>报告编号</th></tr></thead>
@@ -111,6 +111,14 @@
             </table>
           </div>
           <p id="recent-empty" class="empty-state" hidden>还没有真实测试记录。</p>
+          <div id="recent-pagination" class="pagination" hidden>
+            <p id="recent-page-summary" class="pagination-summary"></p>
+            <nav class="pagination-nav" aria-label="测试记录分页">
+              <button class="page-direction" type="button" data-page-action="previous" aria-label="上一页">上一页</button>
+              <div id="recent-page-tabs" class="page-tabs"></div>
+              <button class="page-direction" type="button" data-page-action="next" aria-label="下一页">下一页</button>
+            </nav>
+          </div>
         </article>
 
         <article class="panel feedback-panel">
@@ -125,6 +133,6 @@
   <div id="toast" class="toast" role="status"></div>
   <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2.57.4/dist/umd/supabase.min.js"></script>
   <script src="config.js"></script>
-  <script src="app.js"></script>
+  <script src="app.js?v=20260904-pagination"></script>
 </body>
 </html>
