@@ -7,7 +7,7 @@
   <meta name="theme-color" content="#171716">
   <title>花路人格局 · 站长数据看板</title>
   <link rel="preconnect" href="https://ecqknsixdlziofwacmoi.supabase.co" crossorigin>
-  <link rel="stylesheet" href="styles.css?v=20260904-wechat">
+  <link rel="stylesheet" href="styles.css?v=20260904-filters">
 </head>
 <body>
   <div class="noise" aria-hidden="true"></div>
@@ -60,13 +60,6 @@
           <p id="updated-at" class="updated-at"></p>
         </div>
         <div class="toolbar">
-          <label for="days-select">统计范围</label>
-          <select id="days-select">
-            <option value="3">近 3 天</option>
-            <option value="7" selected>近 7 天</option>
-            <option value="14">近 14 天</option>
-            <option value="30">近 30 天</option>
-          </select>
           <button id="refresh-button" class="dark-button" type="button">刷新数据</button>
         </div>
       </section>
@@ -90,11 +83,37 @@
 
       <section class="chart-grid">
         <article class="panel trend-panel">
-          <header class="panel-header"><div><p class="eyebrow">TREND</p><h2>每日测试趋势</h2></div><span id="trend-total" class="panel-note"></span></header>
+          <header class="panel-header">
+            <div><p class="eyebrow">TREND</p><h2>每日测试趋势</h2></div>
+            <div class="panel-tools">
+              <div class="range-select" data-range-target="trend">
+                <button class="range-select-trigger" type="button" aria-expanded="false"><span>L7D</span><i aria-hidden="true"></i></button>
+                <div class="range-select-menu" role="listbox" hidden>
+                  <button type="button" role="option" data-days="1">Day</button>
+                  <button type="button" role="option" data-days="7" class="active" aria-selected="true">L7D</button>
+                  <button type="button" role="option" data-days="30">Month</button>
+                </div>
+              </div>
+              <span id="trend-total" class="panel-note range-note"></span>
+            </div>
+          </header>
           <div id="trend-chart" class="trend-chart" role="img" aria-label="每日测试数量折线图"></div>
         </article>
         <article class="panel distribution-panel">
-          <header class="panel-header"><div><p class="eyebrow">PERSONA MIX</p><h2>人格结果分布</h2></div><span class="panel-note">本期</span></header>
+          <header class="panel-header">
+            <div><p class="eyebrow">PERSONA MIX</p><h2>人格结果分布</h2></div>
+            <div class="panel-tools">
+              <div class="range-select" data-range-target="profile">
+                <button class="range-select-trigger" type="button" aria-expanded="false"><span>L7D</span><i aria-hidden="true"></i></button>
+                <div class="range-select-menu" role="listbox" hidden>
+                  <button type="button" role="option" data-days="1">Day</button>
+                  <button type="button" role="option" data-days="7" class="active" aria-selected="true">L7D</button>
+                  <button type="button" role="option" data-days="30">Month</button>
+                </div>
+              </div>
+              <span id="profile-total" class="panel-note range-note"></span>
+            </div>
+          </header>
           <div id="profile-chart" class="profile-chart"></div>
         </article>
       </section>
@@ -120,9 +139,17 @@
         </article>
 
         <article class="panel feedback-panel">
-          <header class="panel-header"><div><p class="eyebrow">FEEDBACK</p><h2>用户意见</h2></div><span class="panel-note">标记后会同步到数据库</span></header>
+          <header class="panel-header"><div><p class="eyebrow">FEEDBACK</p><h2>用户意见</h2></div><span id="feedback-note" class="panel-note">标记后会同步到数据库</span></header>
           <div id="feedback-list" class="feedback-list"></div>
           <p id="feedback-empty" class="empty-state" hidden>暂时没有用户意见。</p>
+          <div id="feedback-pagination" class="pagination" hidden>
+            <p id="feedback-page-summary" class="pagination-summary"></p>
+            <nav class="pagination-nav" aria-label="用户意见分页">
+              <button class="page-direction" type="button" data-feedback-action="previous" aria-label="上一页意见">上一页</button>
+              <div id="feedback-page-tabs" class="page-tabs"></div>
+              <button class="page-direction" type="button" data-feedback-action="next" aria-label="下一页意见">下一页</button>
+            </nav>
+          </div>
         </article>
       </section>
     </div>
@@ -131,6 +158,6 @@
   <div id="toast" class="toast" role="status"></div>
   <script src="vendor/supabase.min.js?v=2.57.4"></script>
   <script src="config.js"></script>
-  <script src="app.js?v=20260904-pagination-status"></script>
+  <script src="app.js?v=20260904-filters"></script>
 </body>
 </html>
