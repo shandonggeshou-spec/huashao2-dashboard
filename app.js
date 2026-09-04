@@ -298,15 +298,19 @@ function renderTrend(items, granularity = trendGranularity) {
   chart.replaceChildren();
   chart.dataset.granularity = granularity;
   chart.style.setProperty("--days", Math.max(items.length, 1));
-  const max = Math.max(1, ...items.map(item => Number(item.count || 0)));
+  const max = Math.max(1, ...items.filter(item => !item.is_future).map(item => Number(item.count || 0)));
   items.forEach(item => {
-    const column = emptyNode("div", "trend-column", "");
+    const isFuture = Boolean(item.is_future);
+    const count = isFuture ? null : Number(item.count || 0);
+    const column = emptyNode("div", `trend-column${isFuture ? " future" : ""}`, "");
     const wrap = emptyNode("div", "trend-bar-wrap", "");
-    wrap.append(emptyNode("span", "trend-value", Number(item.count || 0).toLocaleString("zh-CN")));
-    const bar = emptyNode("i", "trend-bar", "");
-    bar.style.height = `${Math.max(2, Number(item.count || 0) / max * 100)}%`;
-    wrap.append(bar);
-    const label = item.label || (item.day ? formatDay(item.day) : safeText(item.bucket_start));
+    if (!isFuture) {
+      wrap.append(emptyNode("span", "trend-value", count.toLocaleString("zh-CN")));
+      const bar = emptyNode("i", "trend-bar", "");
+      bar.style.height = `${Math.max(2, count / max * 100)}%`;
+      wrap.append(bar);
+    }
+    const label = isFuture ? "" : (item.label ?? (item.day ? formatDay(item.day) : safeText(item.bucket_start)));
     column.append(wrap, emptyNode("span", "trend-label", label));
     chart.append(column);
   });

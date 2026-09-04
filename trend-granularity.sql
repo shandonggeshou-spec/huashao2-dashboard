@@ -32,24 +32,26 @@ begin
     with buckets as (
       select hour_value,
              ((v_date::timestamp + make_interval(hours => hour_value)) at time zone 'Asia/Shanghai') as bucket_start,
-             ((v_date::timestamp + make_interval(hours => hour_value + 1)) at time zone 'Asia/Shanghai') as bucket_end
+             ((v_date::timestamp + make_interval(hours => hour_value + 1)) at time zone 'Asia/Shanghai') as bucket_end,
+             (v_date = v_today and hour_value > extract(hour from now() at time zone 'Asia/Shanghai')::integer) as is_future
       from generate_series(0, 23) as hour_value
     ), counts as (
-      select b.hour_value, b.bucket_start, count(r.id) as count
+      select b.hour_value, b.bucket_start, b.is_future, count(r.id) as count
       from buckets b
       left join public.test_results r
         on r.created_at >= b.bucket_start
        and r.created_at < b.bucket_end
        and r.public_id not like 'HL-VERIFY%'
        and r.public_id not like 'HL-LIVE%'
-      group by b.hour_value, b.bucket_start
+      group by b.hour_value, b.bucket_start, b.is_future
     )
     select coalesce(jsonb_agg(jsonb_build_object(
              'bucket_start', bucket_start,
-             'label', lpad(hour_value::text, 2, '0') || '–' || lpad((hour_value + 1)::text, 2, '0'),
-             'count', count
+             'label', hour_value::text,
+             'count', case when is_future then null else count end,
+             'is_future', is_future
            ) order by hour_value), '[]'::jsonb),
-           coalesce(sum(count), 0)
+           coalesce(sum(count) filter (where not is_future), 0)
       into v_items, v_total
     from counts;
 
