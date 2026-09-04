@@ -25,8 +25,8 @@ let recentPageLoading = false;
 let feedbackPage = 1;
 let feedbackTotalPages = 0;
 let feedbackPageLoading = false;
-const rangeDays = { trend: 7, profile: 7 };
-const rangeCache = new Map();
+let trendGranularity = "day";
+const trendCache = new Map();
 
 function showOnly(id) {
   ["#auth-view", "#unauthorized-view", "#dashboard-view"].forEach(selector => {
@@ -103,7 +103,7 @@ async function signOut() {
   recentTotalPages = 0;
   feedbackPage = 1;
   feedbackTotalPages = 0;
-  rangeCache.clear();
+  trendCache.clear();
   history.replaceState({}, document.title, location.pathname);
   showOnly("#auth-view");
   setStatus("已安全退出。");
@@ -111,7 +111,7 @@ async function signOut() {
 async function verifyAndLoad(session) {
   currentSession = session;
   if (!session) return showOnly("#auth-view");
-  rangeCache.clear();
+  trendCache.clear();
   const [dashboardResponse, recentResponse, feedbackResponse] = await Promise.all([
     sb.rpc("get_dashboard_data", { p_days: 7 }),
     sb.rpc("get_test_results_page", { p_page: recentPage, p_page_size: RECENT_PAGE_SIZE }),
@@ -129,12 +129,7 @@ async function verifyAndLoad(session) {
   showOnly("#dashboard-view");
   $("#account-email").textContent = session.user.email || "管理员";
   renderDashboard(data);
-  rangeCache.set(7, data);
-  await Promise.all(Object.entries(rangeDays).map(async ([target, days]) => {
-    if (days === 7) return;
-    rangeDays[target] = 7;
-    await loadRange(target, days);
-  }));
+  await loadTrendGranularity(trendGranularity, true);
   if (recentResponse.error) {
     renderRecent(data.recent || []);
     $("#recent-title").textContent = "最近 20 条测试";
@@ -189,8 +184,18 @@ function renderDashboard(data) {
   $("#updated-at").textContent = `数据更新于 ${formatDate(data.generated_at, true)} · 时区：北京时间`;
   $("#trend-total").textContent = `共 ${Number(metrics.period_tests || 0)} 次`;
   $("#profile-total").textContent = `共 ${Number(metrics.period_tests || 0)} 次`;
-  renderTrend(data.daily || []);
+  renderTrend(data.daily || [], "day");
   renderProfiles(data.profiles || [], Number(metrics.period_tests || 0));
+}
+function syncTrendSelect(granularity) {
+  const select = document.querySelector('[data-range-target="trend"]');
+  if (!select) return;
+  select.querySelectorAll("[data-granularity]").forEach(button => {
+    const selected = button.dataset.granularity === granularity;
+    button.classList.toggle("active", selected);
+    button.setAttribute("aria-selected", String(selected));
+    if (selected) select.querySelector(".range-select-trigger span").textContent = button.textContent;
+  });
 }
 function buildSummary(data) {
   const metrics = data.metrics || {};
@@ -206,9 +211,10 @@ function buildSummary(data) {
     : "目前暂无真实用户意见。";
   return `近 ${data.days} 天共有 ${Number(metrics.period_tests).toLocaleString("zh-CN")} 次测试。最常见结果是${topMeta.name}人格，占 ${share.toFixed(1)}%；本期平均完成耗时 ${formatDuration(metrics.period_avg_duration_seconds)}。${feedbackText}`;
 }
-function renderTrend(items) {
+function renderTrend(items, granularity = trendGranularity) {
   const chart = $("#trend-chart");
   chart.replaceChildren();
+  chart.dataset.granularity = granularity;
   chart.style.setProperty("--days", Math.max(items.length, 1));
   const max = Math.max(1, ...items.map(item => Number(item.count || 0)));
   items.forEach(item => {
@@ -218,7 +224,8 @@ function renderTrend(items) {
     const bar = emptyNode("i", "trend-bar", "");
     bar.style.height = `${Math.max(2, Number(item.count || 0) / max * 100)}%`;
     wrap.append(bar);
-    column.append(wrap, emptyNode("span", "trend-label", formatDay(item.day)));
+    const label = item.label || (item.day ? formatDay(item.day) : safeText(item.bucket_start));
+    column.append(wrap, emptyNode("span", "trend-label", label));
     chart.append(column);
   });
 }
@@ -240,30 +247,40 @@ function renderProfiles(items, total) {
     chart.append(row);
   });
 }
-async function loadRange(target, days) {
-  const container = document.querySelector('[data-range-target="' + target + '"]');
-  if (!container || rangeDays[target] === days) return true;
+async function loadTrendGranularity(granularity, force = false) {
+  const container = document.querySelector('[data-range-target="trend"]');
+  if (!container || (!force && trendGranularity === granularity)) return true;
   container.classList.add("loading");
-  let data = rangeCache.get(days);
+  let data = trendCache.get(granularity);
   if (!data) {
-    const response = await sb.rpc("get_dashboard_data", { p_days: days });
+    const response = await sb.rpc("get_trend_data", { p_granularity: granularity });
     if (response.error) {
-      container.classList.remove("loading");
-      toast("读取失败：" + response.error.message);
-      return false;
+      if (granularity === "day") {
+        const fallback = await sb.rpc("get_dashboard_data", { p_days: 30 });
+        if (!fallback.error) {
+          data = {
+            granularity: "day",
+            total: Number(fallback.data?.metrics?.period_tests || 0),
+            items: fallback.data?.daily || []
+          };
+        }
+      }
+      if (!data) {
+        container.classList.remove("loading");
+        toast(/get_trend_data|schema cache/i.test(response.error.message || "")
+          ? "周/月趋势尚未启用，请先执行趋势聚合 SQL。"
+          : "趋势读取失败：" + response.error.message);
+        return false;
+      }
+    } else {
+      data = response.data;
     }
-    data = response.data;
-    rangeCache.set(days, data);
+    trendCache.set(granularity, data);
   }
-  rangeDays[target] = days;
-  const metrics = data.metrics || {};
-  if (target === "trend") {
-    renderTrend(data.daily || []);
-    $("#trend-total").textContent = "共 " + Number(metrics.period_tests || 0).toLocaleString("zh-CN") + " 次";
-  } else {
-    renderProfiles(data.profiles || [], Number(metrics.period_tests || 0));
-    $("#profile-total").textContent = "共 " + Number(metrics.period_tests || 0).toLocaleString("zh-CN") + " 次";
-  }
+  trendGranularity = granularity;
+  syncTrendSelect(granularity);
+  renderTrend(data.items || [], granularity);
+  $("#trend-total").textContent = "共 " + Number(data.total || 0).toLocaleString("zh-CN") + " 次";
   container.classList.remove("loading");
   return true;
 }
@@ -286,17 +303,13 @@ async function handleRangeSelect(event) {
     trigger.setAttribute("aria-expanded", String(willOpen));
     return;
   }
-  const option = event.target.closest("[data-days]");
+  const option = event.target.closest("[data-granularity]");
   if (!option) return;
-  const days = Number(option.dataset.days);
+  const granularity = option.dataset.granularity;
   closeRangeSelects();
-  const loaded = await loadRange(select.dataset.rangeTarget, days);
+  const loaded = await loadTrendGranularity(granularity);
   if (!loaded) return;
-  select.querySelectorAll("[data-days]").forEach(button => {
-    button.classList.toggle("active", button === option);
-    button.setAttribute("aria-selected", String(button === option));
-  });
-  select.querySelector(".range-select-trigger span").textContent = option.textContent;
+  syncTrendSelect(granularity);
 }
 function renderRecent(items) {
   const body = $("#recent-results");

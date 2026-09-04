@@ -7,7 +7,7 @@
   <meta name="theme-color" content="#171716">
   <title>花路人格局 · 站长数据看板</title>
   <link rel="preconnect" href="https://ecqknsixdlziofwacmoi.supabase.co" crossorigin>
-  <link rel="stylesheet" href="styles.css?v=20260904-filters">
+  <link rel="stylesheet" href="styles.css?v=20260904-granularity2">
 </head>
 <body>
   <div class="noise" aria-hidden="true"></div>
@@ -84,35 +84,25 @@
       <section class="chart-grid">
         <article class="panel trend-panel">
           <header class="panel-header">
-            <div><p class="eyebrow">TREND</p><h2>每日测试趋势</h2></div>
+            <div><p class="eyebrow">TREND</p><h2>测试趋势</h2></div>
             <div class="panel-tools">
               <div class="range-select" data-range-target="trend">
-                <button class="range-select-trigger" type="button" aria-expanded="false"><span>L7D</span><i aria-hidden="true"></i></button>
+                <button class="range-select-trigger" type="button" aria-expanded="false"><span>By Day</span><i aria-hidden="true"></i></button>
                 <div class="range-select-menu" role="listbox" hidden>
-                  <button type="button" role="option" data-days="1">Day</button>
-                  <button type="button" role="option" data-days="7" class="active" aria-selected="true">L7D</button>
-                  <button type="button" role="option" data-days="30">Month</button>
+                  <button type="button" role="option" data-granularity="day" class="active" aria-selected="true">By Day</button>
+                  <button type="button" role="option" data-granularity="l7d">L7D</button>
+                  <button type="button" role="option" data-granularity="month">Month</button>
                 </div>
               </div>
               <span id="trend-total" class="panel-note range-note"></span>
             </div>
           </header>
-          <div id="trend-chart" class="trend-chart" role="img" aria-label="每日测试数量折线图"></div>
+          <div id="trend-chart" class="trend-chart" role="img" aria-label="按所选粒度聚合的测试数量图"></div>
         </article>
         <article class="panel distribution-panel">
           <header class="panel-header">
             <div><p class="eyebrow">PERSONA MIX</p><h2>人格结果分布</h2></div>
-            <div class="panel-tools">
-              <div class="range-select" data-range-target="profile">
-                <button class="range-select-trigger" type="button" aria-expanded="false"><span>L7D</span><i aria-hidden="true"></i></button>
-                <div class="range-select-menu" role="listbox" hidden>
-                  <button type="button" role="option" data-days="1">Day</button>
-                  <button type="button" role="option" data-days="7" class="active" aria-selected="true">L7D</button>
-                  <button type="button" role="option" data-days="30">Month</button>
-                </div>
-              </div>
-              <span id="profile-total" class="panel-note range-note"></span>
-            </div>
+            <span id="profile-total" class="panel-note"></span>
           </header>
           <div id="profile-chart" class="profile-chart"></div>
         </article>
@@ -158,6 +148,6 @@
   <div id="toast" class="toast" role="status"></div>
   <script src="vendor/supabase.min.js?v=2.57.4"></script>
   <script src="config.js"></script>
-  <script src="app.js?v=20260904-filters"></script>
+  <script src="app.js?v=20260904-granularity2"></script>
 </body>
 </html>
