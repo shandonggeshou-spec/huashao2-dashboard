@@ -284,8 +284,8 @@ async function changeProfileMode(event) {
   syncProfileMode();
   if (profileMode === "total") {
     const metrics = lastData?.metrics || {};
-    renderProfiles(lastData?.profiles_total || [], Number(metrics.total_tests || 0));
     if (lastData?.profiles_total?.length) {
+      renderProfiles(lastData.profiles_total, Number(metrics.total_tests || 0));
       $("#profile-total").textContent = `累计 ${Number(metrics.total_tests || 0).toLocaleString("zh-CN")} 次`;
       return;
     }
