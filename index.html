@@ -7,7 +7,7 @@
   <meta name="theme-color" content="#171716">
   <title>花路人格局 · 站长数据看板</title>
   <link rel="preconnect" href="https://ecqknsixdlziofwacmoi.supabase.co" crossorigin>
-  <link rel="stylesheet" href="styles.css?v=20260905-profile-date1">
+  <link rel="stylesheet" href="styles.css?v=20260905-profile-scope2">
 </head>
 <body>
   <div class="noise" aria-hidden="true"></div>
@@ -122,6 +122,10 @@
           <header class="panel-header">
             <div><p class="eyebrow">PERSONA MIX</p><h2>人格结果分布</h2></div>
             <div class="panel-tools profile-tools">
+              <div class="profile-mode-switch" role="group" aria-label="人格分布统计范围">
+                <button type="button" data-profile-mode="total">总计</button>
+                <button type="button" data-profile-mode="day" class="active" aria-pressed="true">按日</button>
+              </div>
               <div id="profile-date-picker" class="date-picker profile-date-picker" data-date-picker="profile">
                 <button id="profile-date-trigger" class="date-picker-trigger" type="button" aria-haspopup="dialog" aria-expanded="false">
                   <span id="profile-date-label"></span><i aria-hidden="true"></i>
@@ -201,6 +205,6 @@
   <div id="toast" class="toast" role="status"></div>
   <script src="vendor/supabase.min.js?v=2.57.4"></script>
   <script src="config.js"></script>
-  <script src="app.js?v=20260905-profile-date1"></script>
+  <script src="app.js?v=20260905-profile-scope2"></script>
 </body>
 </html>

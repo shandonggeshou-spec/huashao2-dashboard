@@ -90,7 +90,11 @@ button:disabled { opacity: .55; cursor: wait; }
 .feedback-filter { width: 116px; z-index: 8; }
 .feedback-filter .range-select-menu { width: 132px; }
 .feedback-tools { min-width: 132px; }
-.profile-tools { min-width: 128px; }
+.profile-tools { min-width: 144px; }
+.profile-tools.loading { opacity: .55; pointer-events: none; }
+.profile-mode-switch { display: grid; grid-template-columns: repeat(2, 1fr); width: 128px; padding: 2px; background: #ebe6dc; }
+.profile-mode-switch button { min-height: 27px; border: 0; background: transparent; color: #52625f; font-size: 11px; cursor: pointer; }
+.profile-mode-switch button.active { background: #d5cec2; color: var(--orange-dark); font-weight: 700; }
 .profile-date-picker.loading { opacity: .55; pointer-events: none; }
 .date-picker { position: relative; z-index: 7; }
 .date-picker-trigger { min-width: 128px; min-height: 32px; display: flex; align-items: center; justify-content: space-between; gap: 12px; padding: 0 6px 0 9px; border: 0; border-bottom: 1px solid #bdb5aa; background: transparent; color: #435653; font-size: 12px; font-variant-numeric: tabular-nums; cursor: pointer; }
@@ -180,7 +184,8 @@ th { color: var(--muted); font-size: 10px; letter-spacing: .08em; }
   .feedback-tools { min-width: 116px; }
   .feedback-filter { width: 116px; }
   .distribution-panel .panel-header { gap: 10px; }
-  .profile-tools { min-width: 124px; }
+  .profile-tools { min-width: 128px; }
+  .profile-mode-switch { width: 124px; }
   .profile-date-picker { flex: 0 0 auto; width: 124px; }
   .trend-panel .panel-header { display: grid; grid-template-columns: minmax(0, 1fr); gap: 14px; }
   .trend-panel .panel-tools { width: 100%; justify-items: stretch; }
@@ -204,6 +209,6 @@ th { color: var(--muted); font-size: 10px; letter-spacing: .08em; }
 @media (max-width: 430px) {
   .brand span:last-child { display: none; }
   .metric-grid { grid-template-columns: 1fr; }
-  .profile-row { grid-template-columns: 54px 1fr 58px; }
+  .profile-row { grid-template-columns: 54px minmax(0, 1fr) 72px; gap: 7px; }
 }
 @media (prefers-reduced-motion: reduce) { *, *::before, *::after { scroll-behavior: auto !important; transition-duration: .01ms !important; } }

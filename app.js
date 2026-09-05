@@ -33,6 +33,7 @@ let trendDate = shanghaiToday();
 let calendarMonth = trendDate.slice(0, 7);
 let profileDate = shanghaiToday();
 let profileCalendarMonth = profileDate.slice(0, 7);
+let profileMode = "day";
 const trendCache = new Map();
 const profileCache = new Map();
 
@@ -151,6 +152,7 @@ async function signOut() {
   calendarMonth = trendDate.slice(0, 7);
   profileDate = shanghaiToday();
   profileCalendarMonth = profileDate.slice(0, 7);
+  profileMode = "day";
   trendCache.clear();
   profileCache.clear();
   history.replaceState({}, document.title, location.pathname);
@@ -180,9 +182,12 @@ async function verifyAndLoad(session) {
   syncFeedbackFilter(feedbackCategory);
   syncTrendDate();
   syncProfileDate();
+  syncProfileMode();
   renderDashboard(data);
-  await loadTrendGranularity(trendGranularity, true);
-  await loadProfileDate(profileDate, data.profiles || [], Number(data.metrics?.period_tests || 0));
+  await Promise.all([
+    loadTrendGranularity(trendGranularity, true),
+    loadProfileDate(profileDate, data.profiles || [], Number(data.metrics?.period_tests || 0))
+  ]);
   if (recentResponse.error) {
     renderRecent(data.recent || []);
     $("#recent-title").textContent = "最近 20 条测试";
@@ -262,6 +267,33 @@ function syncTrendDate() {
 function syncProfileDate() {
   const label = $("#profile-date-label");
   if (label) label.textContent = profileDate;
+}
+function syncProfileMode() {
+  document.querySelectorAll("[data-profile-mode]").forEach(button => {
+    const selected = button.dataset.profileMode === profileMode;
+    button.classList.toggle("active", selected);
+    button.setAttribute("aria-pressed", String(selected));
+  });
+  $("#profile-date-picker").hidden = profileMode !== "day";
+}
+async function changeProfileMode(event) {
+  const button = event.target.closest("[data-profile-mode]");
+  if (!button || button.dataset.profileMode === profileMode) return;
+  profileMode = button.dataset.profileMode;
+  closeCalendar();
+  syncProfileMode();
+  if (profileMode === "total") {
+    const metrics = lastData?.metrics || {};
+    renderProfiles(lastData?.profiles_total || [], Number(metrics.total_tests || 0));
+    if (lastData?.profiles_total?.length) {
+      $("#profile-total").textContent = `累计 ${Number(metrics.total_tests || 0).toLocaleString("zh-CN")} 次`;
+      return;
+    }
+    $("#profile-total").textContent = "正在读取累计数据……";
+    await loadProfileTotal();
+    return;
+  }
+  await loadProfileDate(profileDate);
 }
 function renderCalendar() {
   const [year, month] = calendarMonth.split("-").map(Number);
@@ -498,6 +530,44 @@ async function loadProfileDateFallback(date) {
   const counts = {};
   matching.forEach(item => { counts[item.result_type] = (counts[item.result_type] || 0) + 1; });
   return { date, total: matching.length, items: Object.entries(counts).map(([type, count]) => ({ type, count })) };
+}
+async function loadProfileTotal() {
+  const tools = document.querySelector(".profile-tools");
+  tools.classList.add("loading");
+  let data = profileCache.get("total");
+  if (!data) {
+    const response = await sb.rpc("get_profile_distribution_total");
+    if (response.error) {
+      const firstPage = await sb.rpc("get_test_results_page", { p_page: 1, p_page_size: 50 });
+      if (firstPage.error) {
+        tools.classList.remove("loading");
+        toast("累计人格分布读取失败，请刷新后重试。");
+        return false;
+      }
+      const totalPages = Math.max(1, Number(firstPage.data?.total_pages || 1));
+      const allItems = [...(firstPage.data?.items || [])];
+      for (let start = 2; start <= totalPages; start += 6) {
+        const end = Math.min(totalPages, start + 5);
+        const batch = await Promise.all(Array.from({ length: end - start + 1 }, (_, offset) =>
+          sb.rpc("get_test_results_page", { p_page: start + offset, p_page_size: 50 })
+        ));
+        if (batch.some(next => next.error)) {
+          tools.classList.remove("loading");
+          toast("累计人格分布读取失败，请刷新后重试。");
+          return false;
+        }
+        batch.forEach(next => allItems.push(...(next.data?.items || [])));
+      }
+      const counts = {};
+      allItems.forEach(item => { counts[item.result_type] = (counts[item.result_type] || 0) + 1; });
+      data = { total: allItems.length, items: Object.entries(counts).map(([type, count]) => ({ type, count })) };
+    } else data = response.data || {};
+    profileCache.set("total", data);
+  }
+  renderProfiles(data.items || [], Number(data.total || 0));
+  $("#profile-total").textContent = `累计 ${Number(data.total || 0).toLocaleString("zh-CN")} 次`;
+  tools.classList.remove("loading");
+  return true;
 }
 async function loadProfileDate(date, fallbackItems = [], fallbackTotal = 0) {
   const picker = $("#profile-date-picker");
@@ -857,6 +927,7 @@ $("#trend-date-trigger").addEventListener("click", toggleCalendar);
 $("#trend-calendar").addEventListener("click", handleCalendar);
 $("#profile-date-trigger").addEventListener("click", toggleProfileCalendar);
 $("#profile-calendar").addEventListener("click", handleProfileCalendar);
+document.querySelector(".profile-mode-switch").addEventListener("click", changeProfileMode);
 document.addEventListener("click", event => {
   if (!event.target.closest(".range-select")) closeRangeSelects();
   if (!event.target.closest(".date-picker")) closeCalendar();
