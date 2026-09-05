@@ -7,7 +7,7 @@
   <meta name="theme-color" content="#171716">
   <title>花路人格局 · 站长数据看板</title>
   <link rel="preconnect" href="https://ecqknsixdlziofwacmoi.supabase.co" crossorigin>
-  <link rel="stylesheet" href="styles.css?v=20260905-feedback-filter5">
+  <link rel="stylesheet" href="styles.css?v=20260905-profile-date1">
 </head>
 <body>
   <div class="noise" aria-hidden="true"></div>
@@ -121,7 +121,25 @@
         <article class="panel distribution-panel">
           <header class="panel-header">
             <div><p class="eyebrow">PERSONA MIX</p><h2>人格结果分布</h2></div>
-            <span id="profile-total" class="panel-note"></span>
+            <div class="panel-tools profile-tools">
+              <div id="profile-date-picker" class="date-picker profile-date-picker" data-date-picker="profile">
+                <button id="profile-date-trigger" class="date-picker-trigger" type="button" aria-haspopup="dialog" aria-expanded="false">
+                  <span id="profile-date-label"></span><i aria-hidden="true"></i>
+                </button>
+                <div id="profile-calendar" class="calendar-popover" role="dialog" aria-label="选择人格分布日期" hidden>
+                  <div class="calendar-head">
+                    <button type="button" data-profile-calendar-shift="-12" aria-label="上一年">«</button>
+                    <button type="button" data-profile-calendar-shift="-1" aria-label="上个月">‹</button>
+                    <strong id="profile-calendar-month-label"></strong>
+                    <button type="button" data-profile-calendar-shift="1" aria-label="下个月">›</button>
+                    <button type="button" data-profile-calendar-shift="12" aria-label="下一年">»</button>
+                  </div>
+                  <div class="calendar-weekdays" aria-hidden="true"><span>日</span><span>一</span><span>二</span><span>三</span><span>四</span><span>五</span><span>六</span></div>
+                  <div id="profile-calendar-days" class="calendar-days"></div>
+                </div>
+              </div>
+              <span id="profile-total" class="panel-note"></span>
+            </div>
           </header>
           <div id="profile-chart" class="profile-chart"></div>
         </article>
@@ -183,6 +201,6 @@
   <div id="toast" class="toast" role="status"></div>
   <script src="vendor/supabase.min.js?v=2.57.4"></script>
   <script src="config.js"></script>
-  <script src="app.js?v=20260905-feedback-filter2"></script>
+  <script src="app.js?v=20260905-profile-date1"></script>
 </body>
 </html>

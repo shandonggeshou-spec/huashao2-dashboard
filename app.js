@@ -31,7 +31,10 @@ let legacyFeedbackItems = null;
 let trendGranularity = "hour";
 let trendDate = shanghaiToday();
 let calendarMonth = trendDate.slice(0, 7);
+let profileDate = shanghaiToday();
+let profileCalendarMonth = profileDate.slice(0, 7);
 const trendCache = new Map();
+const profileCache = new Map();
 
 function shanghaiToday() {
   const parts = new Intl.DateTimeFormat("en-CA", {
@@ -88,6 +91,14 @@ function formatDay(value) {
   const date = new Date(`${value}T00:00:00+08:00`);
   return new Intl.DateTimeFormat("zh-CN", { timeZone: "Asia/Shanghai", month: "numeric", day: "numeric" }).format(date);
 }
+function shanghaiDateOf(value) {
+  if (!value) return "";
+  const parts = new Intl.DateTimeFormat("en-CA", {
+    timeZone: "Asia/Shanghai", year: "numeric", month: "2-digit", day: "2-digit"
+  }).formatToParts(new Date(value));
+  const values = Object.fromEntries(parts.map(part => [part.type, part.value]));
+  return `${values.year}-${values.month}-${values.day}`;
+}
 function formatDuration(seconds) {
   const value = Number(seconds);
   if (!Number.isFinite(value)) return "—";
@@ -138,7 +149,10 @@ async function signOut() {
   legacyFeedbackItems = null;
   trendDate = shanghaiToday();
   calendarMonth = trendDate.slice(0, 7);
+  profileDate = shanghaiToday();
+  profileCalendarMonth = profileDate.slice(0, 7);
   trendCache.clear();
+  profileCache.clear();
   history.replaceState({}, document.title, location.pathname);
   showOnly("#auth-view");
   setStatus("已安全退出。");
@@ -147,6 +161,7 @@ async function verifyAndLoad(session) {
   currentSession = session;
   if (!session) return showOnly("#auth-view");
   trendCache.clear();
+  profileCache.clear();
   const [dashboardResponse, recentResponse] = await Promise.all([
     sb.rpc("get_dashboard_data", { p_days: 7 }),
     sb.rpc("get_test_results_page", { p_page: recentPage, p_page_size: RECENT_PAGE_SIZE })
@@ -164,8 +179,10 @@ async function verifyAndLoad(session) {
   $("#account-email").textContent = session.user.email || "管理员";
   syncFeedbackFilter(feedbackCategory);
   syncTrendDate();
+  syncProfileDate();
   renderDashboard(data);
   await loadTrendGranularity(trendGranularity, true);
+  await loadProfileDate(profileDate, data.profiles || [], Number(data.metrics?.period_tests || 0));
   if (recentResponse.error) {
     renderRecent(data.recent || []);
     $("#recent-title").textContent = "最近 20 条测试";
@@ -184,6 +201,7 @@ async function refreshData() {
   button.disabled = true;
   button.textContent = "刷新中……";
   legacyFeedbackItems = null;
+  profileCache.clear();
   await verifyAndLoad(currentSession);
   button.disabled = false;
   button.textContent = "刷新数据";
@@ -213,9 +231,9 @@ function renderDashboard(data) {
   $("#summary-title").textContent = buildSummary(data);
   $("#updated-at").textContent = `数据更新于 ${formatDate(data.generated_at, true)} · 时区：北京时间`;
   $("#trend-total").textContent = `共 ${Number(metrics.period_tests || 0)} 次`;
-  $("#profile-total").textContent = `共 ${Number(metrics.period_tests || 0)} 次`;
+  $("#profile-total").textContent = "正在读取当天数据……";
   renderTrend([], trendGranularity);
-  renderProfiles(data.profiles || [], Number(metrics.period_tests || 0));
+  renderProfiles([], 0);
 }
 function syncTrendSelect(granularity) {
   const select = document.querySelector('[data-range-target="trend"]');
@@ -240,6 +258,10 @@ function syncFeedbackFilter(category) {
 function syncTrendDate() {
   const label = $("#trend-date-label");
   if (label) label.textContent = trendDate;
+}
+function syncProfileDate() {
+  const label = $("#profile-date-label");
+  if (label) label.textContent = profileDate;
 }
 function renderCalendar() {
   const [year, month] = calendarMonth.split("-").map(Number);
@@ -271,10 +293,13 @@ function renderCalendar() {
 function closeCalendar() {
   $("#trend-calendar").hidden = true;
   $("#trend-date-trigger").setAttribute("aria-expanded", "false");
+  $("#profile-calendar").hidden = true;
+  $("#profile-date-trigger").setAttribute("aria-expanded", "false");
 }
 function toggleCalendar() {
   const calendar = $("#trend-calendar");
   const willOpen = calendar.hidden;
+  closeCalendar();
   closeRangeSelects();
   calendar.hidden = !willOpen;
   $("#trend-date-trigger").setAttribute("aria-expanded", String(willOpen));
@@ -294,6 +319,60 @@ async function handleCalendar(event) {
   syncTrendDate();
   closeCalendar();
   await loadTrendGranularity(trendGranularity, true);
+}
+function renderProfileCalendar() {
+  const [year, month] = profileCalendarMonth.split("-").map(Number);
+  const first = new Date(Date.UTC(year, month - 1, 1));
+  const gridStart = new Date(first);
+  gridStart.setUTCDate(1 - first.getUTCDay());
+  $("#profile-calendar-month-label").textContent = `${year} - ${String(month).padStart(2, "0")}`;
+  const days = $("#profile-calendar-days");
+  days.replaceChildren();
+  for (let index = 0; index < 42; index += 1) {
+    const date = new Date(gridStart);
+    date.setUTCDate(gridStart.getUTCDate() + index);
+    const value = dateKey(date);
+    const button = emptyNode("button", "calendar-day", date.getUTCDate());
+    button.type = "button";
+    button.dataset.profileDate = value;
+    button.classList.toggle("outside", date.getUTCMonth() !== month - 1);
+    button.classList.toggle("selected", value === profileDate);
+    button.classList.toggle("today", value === shanghaiToday());
+    button.disabled = value > shanghaiToday();
+    button.setAttribute("aria-label", value);
+    days.append(button);
+  }
+  document.querySelectorAll("[data-profile-calendar-shift]").forEach(button => {
+    const amount = Number(button.dataset.profileCalendarShift);
+    button.disabled = amount > 0 && shiftMonth(profileCalendarMonth, amount) > shanghaiToday().slice(0, 7);
+  });
+}
+function toggleProfileCalendar() {
+  const calendar = $("#profile-calendar");
+  const willOpen = calendar.hidden;
+  closeCalendar();
+  closeRangeSelects();
+  calendar.hidden = !willOpen;
+  $("#profile-date-trigger").setAttribute("aria-expanded", String(willOpen));
+  if (willOpen) {
+    profileCalendarMonth = profileDate.slice(0, 7);
+    renderProfileCalendar();
+  }
+}
+async function handleProfileCalendar(event) {
+  const shift = event.target.closest("[data-profile-calendar-shift]");
+  if (shift && !shift.disabled) {
+    profileCalendarMonth = shiftMonth(profileCalendarMonth, Number(shift.dataset.profileCalendarShift));
+    renderProfileCalendar();
+    return;
+  }
+  const day = event.target.closest("[data-profile-date]");
+  if (!day || day.disabled) return;
+  profileDate = day.dataset.profileDate;
+  profileCalendarMonth = profileDate.slice(0, 7);
+  syncProfileDate();
+  closeCalendar();
+  await loadProfileDate(profileDate);
 }
 function buildSummary(data) {
   const metrics = data.metrics || {};
@@ -369,6 +448,86 @@ function renderProfiles(items, total) {
     row.append(track, emptyNode("strong", "", `${count} · ${percent.toFixed(1)}%`));
     chart.append(row);
   });
+}
+async function loadProfileDateFallback(date) {
+  const pageSize = 50;
+  const pages = new Map();
+  const fetchPage = async page => {
+    if (pages.has(page)) return pages.get(page);
+    const response = await sb.rpc("get_test_results_page", { p_page: page, p_page_size: pageSize });
+    if (response.error) throw response.error;
+    const value = response.data || {};
+    pages.set(page, value);
+    return value;
+  };
+  const first = await fetchPage(1);
+  const totalPages = Math.max(0, Number(first.total_pages || 0));
+  if (!totalPages || !(first.items || []).length) return { date, total: 0, items: [] };
+
+  let low = 1;
+  let high = totalPages;
+  let foundPage = 0;
+  while (low <= high) {
+    const middle = Math.floor((low + high) / 2);
+    const current = await fetchPage(middle);
+    const items = current.items || [];
+    if (!items.length) break;
+    const newest = shanghaiDateOf(items[0].tested_at);
+    const oldest = shanghaiDateOf(items[items.length - 1].tested_at);
+    if (date > newest) high = middle - 1;
+    else if (date < oldest) low = middle + 1;
+    else { foundPage = middle; break; }
+  }
+  if (!foundPage) return { date, total: 0, items: [] };
+
+  const matching = [];
+  const collect = pageData => matching.push(...(pageData.items || []).filter(item => shanghaiDateOf(item.tested_at) === date));
+  collect(await fetchPage(foundPage));
+  for (let page = foundPage - 1; page >= 1; page -= 1) {
+    const current = await fetchPage(page);
+    const items = current.items || [];
+    if (!items.some(item => shanghaiDateOf(item.tested_at) === date)) break;
+    collect(current);
+  }
+  for (let page = foundPage + 1; page <= totalPages; page += 1) {
+    const current = await fetchPage(page);
+    const items = current.items || [];
+    if (!items.some(item => shanghaiDateOf(item.tested_at) === date)) break;
+    collect(current);
+  }
+  const counts = {};
+  matching.forEach(item => { counts[item.result_type] = (counts[item.result_type] || 0) + 1; });
+  return { date, total: matching.length, items: Object.entries(counts).map(([type, count]) => ({ type, count })) };
+}
+async function loadProfileDate(date, fallbackItems = [], fallbackTotal = 0) {
+  const picker = $("#profile-date-picker");
+  if (!picker || !sb) return false;
+  picker.classList.add("loading");
+  let data = profileCache.get(date);
+  if (!data) {
+    const response = await sb.rpc("get_profile_distribution_by_date", { p_date: date });
+    if (response.error) {
+      try {
+        data = await loadProfileDateFallback(date);
+      } catch (fallbackError) {
+        picker.classList.remove("loading");
+        if (date === shanghaiToday() && fallbackItems.length) {
+          renderProfiles(fallbackItems, fallbackTotal);
+          $("#profile-total").textContent = `近 7 天 · 共 ${Number(fallbackTotal || 0).toLocaleString("zh-CN")} 次`;
+        } else {
+          renderProfiles([], 0);
+          $("#profile-total").textContent = "读取失败";
+        }
+        toast("人格分布读取失败，请刷新后重试。");
+        return false;
+      }
+    } else data = response.data || {};
+    profileCache.set(date, data);
+  }
+  renderProfiles(data.items || [], Number(data.total || 0));
+  $("#profile-total").textContent = `共 ${Number(data.total || 0).toLocaleString("zh-CN")} 次`;
+  picker.classList.remove("loading");
+  return true;
 }
 async function loadTrendGranularity(granularity, force = false) {
   const container = document.querySelector('[data-range-target="trend"]');
@@ -696,6 +855,8 @@ $("#refresh-button").addEventListener("click", refreshData);
 document.querySelectorAll(".range-select").forEach(select => select.addEventListener("click", handleRangeSelect));
 $("#trend-date-trigger").addEventListener("click", toggleCalendar);
 $("#trend-calendar").addEventListener("click", handleCalendar);
+$("#profile-date-trigger").addEventListener("click", toggleProfileCalendar);
+$("#profile-calendar").addEventListener("click", handleProfileCalendar);
 document.addEventListener("click", event => {
   if (!event.target.closest(".range-select")) closeRangeSelects();
   if (!event.target.closest(".date-picker")) closeCalendar();
